@@ -1,0 +1,286 @@
+import BaseError from "../../utils/base.error";
+
+import Contract, { ContractStatus } from "../../schemas/contract.schema";
+import IJwtUser from "../../types/user";
+import { Debtor } from "../../schemas/debtor.schema";
+
+class DebtorService {
+  async getDebtors() {
+    try {
+      const debtors = await Contract.aggregate([
+        {
+          $match: {
+            isActive: true,
+            isDeleted: false,
+            status: ContractStatus.ACTIVE,
+          },
+        },
+        {
+          $lookup: {
+            from: "customers",
+            localField: "customer",
+            foreignField: "_id",
+            as: "customer",
+          },
+        },
+        { $unwind: "$customer" },
+        {
+          $lookup: {
+            from: "employees",
+            localField: "customer.manager",
+            foreignField: "_id",
+            as: "manager",
+          },
+        },
+        {
+          $unwind: {
+            path: "$manager",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "payments",
+            foreignField: "_id",
+            as: "paymentDetails",
+          },
+        },
+        {
+          $addFields: {
+            totalPaid: {
+              $add: [
+                {
+                  $sum: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: "$paymentDetails",
+                          as: "p",
+                          cond: { $eq: ["$$p.isPaid", true] },
+                        },
+                      },
+                      as: "pp",
+                      in: "$$pp.amount",
+                    },
+                  },
+                },
+                "$initialPayment",
+              ],
+            },
+          },
+        },
+        {
+          $addFields: {
+            remainingDebt: {
+              $subtract: ["$totalPrice", "$totalPaid"],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$customer._id",
+            firstName: { $first: "$customer.firstName" },
+            lastName: { $first: "$customer.lastName" },
+            phoneNumber: { $first: "$customer.phoneNumber" },
+            managerFirstName: { $first: "$manager.firstName" },
+            managerLastName: { $first: "$manager.lastName" },
+            activeContractsCount: { $sum: 1 },
+            totalPrice: { $sum: "$totalPrice" },
+            totalPaid: { $sum: "$totalPaid" },
+            remainingDebt: { $sum: "$remainingDebt" },
+            nextPaymentDate: { $min: "$nextPaymentDate" },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            fullName: {
+              $concat: ["$firstName", " ", "$lastName"],
+            },
+            phoneNumber: 1,
+            manager: {
+              $concat: [
+                { $ifNull: ["$managerFirstName", ""] },
+                " ",
+                { $ifNull: ["$managerLastName", ""] },
+              ],
+            },
+            totalPrice: 1,
+            totalPaid: 1,
+            remainingDebt: 1,
+            nextPaymentDate: 1,
+            activeContractsCount: 1,
+          },
+        },
+        { $sort: { totalDebt: -1 } },
+      ]);
+      return debtors;
+    } catch (error) {
+      console.error("Error fetching debtors report:", error);
+      throw BaseError.InternalServerError(String(error));
+    }
+  }
+
+  async getContract(startDate: string, endDate: string) {
+    try {
+      const today = new Date();
+      let dateFilter: any = {};
+
+      if (startDate && endDate) {
+        dateFilter = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        };
+      } else {
+        dateFilter = { $lte: today };
+      }
+
+      return await Contract.aggregate([
+        {
+          $match: {
+            isDeleted: false,
+            isActive: true,
+            isDeclare: false,
+            status: ContractStatus.ACTIVE,
+            nextPaymentDate: dateFilter,
+          },
+        },
+        {
+          $lookup: {
+            from: "customers",
+            localField: "customer",
+            foreignField: "_id",
+            as: "customer",
+          },
+        },
+        { $unwind: "$customer" },
+        {
+          $lookup: {
+            from: "employees",
+            localField: "customer.manager",
+            foreignField: "_id",
+            as: "manager",
+          },
+        },
+        {
+          $unwind: {
+            path: "$manager",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "payments",
+            localField: "payments",
+            foreignField: "_id",
+            as: "paymentDetails",
+          },
+        },
+        {
+          $addFields: {
+            totalPaid: {
+              $add: [
+                {
+                  $sum: {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: "$paymentDetails",
+                          as: "p",
+                          cond: { $eq: ["$$p.isPaid", true] },
+                        },
+                      },
+                      as: "pp",
+                      in: "$$pp.amount",
+                    },
+                  },
+                },
+                "$initialPayment",
+              ],
+            },
+          },
+        },
+        {
+          $addFields: {
+            remainingDebt: {
+              $subtract: ["$totalPrice", "$totalPaid"],
+            },
+          },
+        },
+        {
+          $addFields: {
+            delayDays: {
+              $cond: [
+                { $lt: ["$nextPaymentDate", today] },
+                {
+                  $dateDiff: {
+                    startDate: "$nextPaymentDate",
+                    endDate: today,
+                    unit: "day",
+                  },
+                },
+                0,
+              ],
+            },
+          },
+        },
+        {
+          $project: {
+            // _id: 1,
+            _id: "$customer._id",
+            fullName: {
+              $concat: ["$customer.firstName", " ", "$customer.lastName"],
+            },
+            phoneNumber: "$customer.phoneNumber",
+            manager: {
+              $concat: [
+                { $ifNull: ["$manager.firstName", ""] },
+                " ",
+                { $ifNull: ["$manager.lastName", ""] },
+              ],
+            },
+            totalPrice: 1,
+            totalPaid: 1,
+            remainingDebt: 1,
+            nextPaymentDate: 1,
+            productName: "$productName",
+            startDate: 1,
+            delayDays: 1,
+            initialPayment: 1,
+          },
+        },
+        { $sort: { "dates.nextPaymentDate": 1 } },
+      ]);
+    } catch (error) {
+      console.error("Error fetching contracts by payment date:", error);
+      throw BaseError.InternalServerError(
+        "Shartnomalarni olishda xatolik yuz berdi"
+      );
+    }
+  }
+
+  async declareDebtors(user: IJwtUser, contractIds: string[]) {
+    const contracts = await Contract.find({
+      _id: { $in: contractIds },
+    });
+
+    if (contracts.length === 0) {
+      throw BaseError.BadRequest(
+        "E'lon qilish uchun mos qarzdorliklar topilmadi"
+      );
+    }
+
+    for (const contract of contracts) {
+      contract.isDeclare = true;
+      await Debtor.create({
+        contractId: contract._id,
+        debtAmount: contract.monthlyPayment,
+        createBy: user.sub,
+      });
+      await contract.save();
+    }
+  }
+}
+
+export default new DebtorService();

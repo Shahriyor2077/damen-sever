@@ -1,0 +1,99 @@
+import Employee, { IEmployee } from "../../schemas/employee.schema";
+import IJwtUser from "../../types/user";
+
+import BaseError from "../../utils/base.error";
+import { Balance } from "../../schemas/balance.schema";
+import { Expenses } from "../../schemas/expenses.schema";
+import { Types } from "mongoose";
+
+class ExpensesSrvice {
+  async subtractFromBalance(
+    managerId: IEmployee,
+    changes: {
+      dollar: number;
+      sum: number;
+    }
+  ) {
+    const balance = await Balance.findOne({ managerId });
+
+    if (!balance) {
+      throw BaseError.NotFoundError("Balans topilmadi");
+    }
+
+    balance.dollar -= changes.dollar;
+    balance.sum -= changes.sum;
+
+    return await balance.save();
+  }
+
+  async get(id: string, page = 1, limit = 10) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw BaseError.BadRequest("ID formati noto‘g‘ri");
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [expenses, total] = await Promise.all([
+      Expenses.aggregate([
+        {
+          $match: {
+            managerId: new Types.ObjectId(id),
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1, // So‘nggi xarajatlar birinchi
+          },
+        },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            id: { $toString: "$_id" },
+            method: 1,
+            notes: 1,
+            isActive: 1,
+            createdAt: 1,
+            currencyDetails: {
+              dollar: "$dollar",
+              sum: "$sum",
+              plastic: "$plastic",
+              visa: "$visa",
+              mastercard: "$mastercard",
+            },
+          },
+        },
+      ]),
+      Expenses.countDocuments({ managerId: new Types.ObjectId(id) }),
+    ]);
+
+    return {
+      expenses,
+      meta: {
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async return(id: string) {
+    const existingExpenses = await Expenses.findById(id);
+
+    if (!existingExpenses) {
+      throw BaseError.NotFoundError("Qarizdorlik topilmadi yoki o'chirilgan");
+    }
+
+
+
+    existingExpenses.isActive = false;
+    await existingExpenses.save();
+
+    return {
+      status: "success",
+      message: "Xarajat muvaffaqiyatli yangilandi.",
+    };
+  }
+}
+
+export default new ExpensesSrvice();
