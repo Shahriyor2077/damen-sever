@@ -26,9 +26,42 @@ const startServer = async () => {
   }
 };
 
-// startServer();
+const startApplication = async () => {
+  try {
+    // Always start the server
+    await startServer();
 
-Promise.all([startServer(), startBot(bot)]).catch((err) => {
-  console.error("Dasturni ishga tushirishda xatolik:", err);
-  process.exit(1);
-});
+    // Start bot based on environment and configuration
+    const enableBot = process.env.ENABLE_BOT;
+    const isProduction = process.env.NODE_ENV === "production";
+    const hasToken = !!process.env.BOT_TOKEN;
+
+    console.log(`🔍 Bot configuration check:`);
+    console.log(`   - Has token: ${hasToken}`);
+    console.log(`   - Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`   - ENABLE_BOT: ${enableBot || "not set"}`);
+
+    // Bot startup logic:
+    // 1. If ENABLE_BOT is explicitly set to "false", don't start bot
+    // 2. If token exists, start bot by default (unless disabled)
+    const shouldStartBot = hasToken && enableBot !== "false";
+
+    if (shouldStartBot) {
+      console.log("🤖 Starting Telegram bot...");
+      try {
+        await startBot(bot);
+      } catch (botError) {
+        console.error("🚫 Bot startup failed, but server continues:", botError);
+      }
+    } else if (hasToken && enableBot === "false") {
+      console.log("🚫 Bot disabled by ENABLE_BOT=false");
+    } else {
+      console.log("⚠️ Bot token not found, skipping bot initialization");
+    }
+  } catch (err) {
+    console.error("Application start error:", err);
+    process.exit(1);
+  }
+};
+
+startApplication();

@@ -1,25 +1,46 @@
 import { Telegraf } from "telegraf";
 
 const startBot = async (bot: Telegraf<any>) => {
-  try {
-    console.log("🚀 Bot ishga tushirilmoqda...");
+  console.log("🚀 Bot ishga tushirilmoqda...");
 
-    // Launch bot with error handling
-    await bot.launch();
+  try {
+    // Simple launch without getMe check to avoid network timeout
+    await bot.launch({
+      dropPendingUpdates: true,
+    });
     console.log("✅ Bot polling rejimida ishga tushdi");
 
-    // Try to get bot info with longer timeout for production
-    setTimeout(async () => {
-      try {
-        const info = await bot.telegram.getMe();
-        console.log(`✅ Bot ma'lumoti olindi: @${info.username}`);
-      } catch (infoErr) {
-        console.log("⚠️ Bot ma'lumotini olishda xatolik, lekin bot ishlaydi");
-        console.log("📡 Bot polling rejimida davom etmoqda...");
+    // Try to get bot info in background (non-blocking)
+    setImmediate(async () => {
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (attempts < maxAttempts) {
+        try {
+          const info = await Promise.race([
+            bot.telegram.getMe(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Timeout")), 10000)
+            ),
+          ]);
+          console.log(`✅ Bot ma'lumoti olindi: @${(info as any).username}`);
+          break;
+        } catch (infoErr: any) {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.log(
+              "⚠️ Bot ma'lumotini olishda doimiy xatolik, lekin bot ishlaydi"
+            );
+            console.log("📡 Bot polling rejimida davom etmoqda...");
+            break;
+          }
+          // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
       }
-    }, 2000); // 2 soniya kutib, keyin ma'lumot olishga harakat qilish
-  } catch (err) {
-    console.error("❌ Botni ishga tushirishda xatolik:", err);
+    });
+  } catch (err: any) {
+    console.error("❌ Botni ishga tushirishda xatolik:", err.message || err);
     console.log(
       "🔄 Bot ishga tushirishda muammo, lekin server davom etmoqda..."
     );

@@ -4,9 +4,11 @@
   "main": "server.js",
   "scripts": {
     "starttest": "tsc && node dist/server.js",
-    "start": "tsc && node --max-old-space-size=512 dist/server.js",
+    "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "render-build": "npm install && npm run build",
+    "render-start": "node --max-old-space-size=256 dist/server.js"
   },
   "keywords": [],
   "author": "",

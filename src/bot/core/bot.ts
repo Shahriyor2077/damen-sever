@@ -2,7 +2,7 @@
 // import config from "../utils/config";
 // import { SceneContext } from "telegraf/typings/scenes";
 
-import {  Telegraf } from "telegraf";
+import { Telegraf } from "telegraf";
 import config from "../utils/config";
 import { MyContext } from "../utils/context";
 
@@ -11,6 +11,8 @@ if (!config.BOT_TOKEN) {
 }
 
 // Bot instance
-const bot = new Telegraf<MyContext>(config.BOT_TOKEN);
+const bot = new Telegraf<MyContext>(config.BOT_TOKEN, {
+  handlerTimeout: 90000, // 90 second handler timeout
+});
 
 export default bot;
