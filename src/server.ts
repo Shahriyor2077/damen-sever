@@ -26,9 +26,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// startServer();
 
-// Promise.all([startServer(), startBot(bot)]).catch((err) => {
-//   console.error("Dasturni ishga tushirishda xatolik:", err);
-//   process.exit(1);
-// });
+Promise.all([startServer(), startBot(bot)]).catch((err) => {
+  console.error("Dasturni ishga tushirishda xatolik:", err);
+  process.exit(1);
+});
