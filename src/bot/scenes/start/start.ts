@@ -25,10 +25,22 @@ startScene.enter(async (ctx) => {
       return await ctx.scene.enter("phone");
     }
 
-    await ctx.reply("✅ Tizimga muvaffaqiyatli kirdingiz.");
-  } catch (e) {
-    console.log("start/index.ts ERROR:", e);
-    await ctx.reply("Ishlashda xatolik yuz berdi.");
+    try {
+      await ctx.reply("✅ Tizimga muvaffaqiyatli kirdingiz.");
+    } catch (replyErr: any) {
+      console.log("Reply timeout:", replyErr.message);
+    }
+  } catch (e: any) {
+    console.log("start/index.ts ERROR:", e.message || e);
+
+    // Only try to reply if it's not a network error
+    if (!e.message?.includes("ETIMEDOUT") && !e.message?.includes("timeout")) {
+      try {
+        await ctx.reply("Ishlashda xatolik yuz berdi.");
+      } catch (replyErr) {
+        console.log("Reply error:", replyErr);
+      }
+    }
   }
 });
 

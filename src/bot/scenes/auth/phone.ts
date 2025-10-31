@@ -5,14 +5,18 @@ import { MyContext } from "../../utils/context";
 const phoneScene = new Scenes.BaseScene<MyContext>("phone");
 
 phoneScene.enter(async (ctx) => {
-  await ctx.reply(
-    "Telefon raqamingizni kiriting: ",
-    Markup.keyboard([
-      Markup.button.contactRequest("📱 Telefon raqamni yuborish"),
-    ])
-      .resize()
-      .oneTime()
-  );
+  try {
+    await ctx.reply(
+      "Telefon raqamingizni kiriting: ",
+      Markup.keyboard([
+        Markup.button.contactRequest("📱 Telefon raqamni yuborish"),
+      ])
+        .resize()
+        .oneTime()
+    );
+  } catch (err: any) {
+    console.log("Phone scene enter error:", err.message);
+  }
 });
 
 phoneScene.hears(/^\/start\b/, (ctx) => ctx.scene.enter("start"));
