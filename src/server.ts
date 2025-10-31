@@ -63,5 +63,5 @@ const startApplication = async () => {
     process.exit(1);
   }
 };
-
+//start the application
 startApplication();
