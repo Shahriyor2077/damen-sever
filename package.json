@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "starttest": "tsc && node dist/server.js",
     "start": "tsc && node --max-old-space-size=512 dist/server.js",
