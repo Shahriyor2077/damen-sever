@@ -11,8 +11,35 @@ import Notes from "../../schemas/notes.schema";
 import { Types } from "mongoose";
 import Customer from "../../schemas/customer.schema";
 import Payment from "../../schemas/payment.schema";
+import { Balance } from "../../schemas/balance.schema";
 
 class ContractService {
+  // Balansni yangilash funksiyasi
+  async updateBalance(
+    managerId: any,
+    changes: {
+      dollar?: number;
+      sum?: number;
+    }
+  ) {
+    const balance = await Balance.findOne({ managerId });
+
+    if (!balance) {
+      // Agar balans yo'q bo'lsa, yangi yaratamiz
+      return await Balance.create({
+        managerId,
+        dollar: changes.dollar || 0,
+        sum: changes.sum || 0,
+      });
+    }
+
+    // Balansga qo'shamiz
+    balance.dollar += changes.dollar || 0;
+    balance.sum += changes.sum || 0;
+
+    return await balance.save();
+  }
+
   async getAll() {
     return await Contract.aggregate([
       {
@@ -454,6 +481,14 @@ class ContractService {
     contract.payments = await Payment.find({ _id: { $in: savedPayments } });
 
     await contract.save();
+
+    // Initial payment balansga qo'shish
+    if (initialPayment && initialPayment > 0) {
+      await this.updateBalance(createBy._id, {
+        dollar: initialPayment, // Initial payment dollar hisobida
+        sum: 0,
+      });
+    }
 
     return { message: "Shartnoma yaratildi." };
   }

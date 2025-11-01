@@ -84,6 +84,20 @@ class EmployeeService {
         },
       },
       {
+        $lookup: {
+          from: "currencies",
+          pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }],
+          as: "currency",
+        },
+      },
+      {
+        $addFields: {
+          exchangeRate: {
+            $ifNull: [{ $arrayElemAt: ["$currency.amount", 0] }, 12500],
+          },
+        },
+      },
+      {
         $project: {
           firstName: 1,
           lastName: 1,
@@ -93,7 +107,11 @@ class EmployeeService {
           role: 1,
           balance: {
             dollar: "$balance.dollar",
-            sum: "$balance.sum",
+            sum: {
+              $round: {
+                $multiply: ["$balance.dollar", "$exchangeRate"],
+              },
+            },
           },
         },
       },

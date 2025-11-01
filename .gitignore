@@ -197,3 +197,4 @@ ecosystem.config.js
 .cache/
 .temp/
 .sass-cache/
+.env

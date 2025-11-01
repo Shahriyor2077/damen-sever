@@ -8,7 +8,7 @@ import Notes from "../../schemas/notes.schema";
 import { Balance } from "../../schemas/balance.schema";
 
 class PaymentSrvice {
-  async subtractFromBalance(
+  async addToBalance(
     managerId: IEmployee,
     changes: {
       dollar?: number;
@@ -17,21 +17,20 @@ class PaymentSrvice {
   ) {
     const balance = await Balance.findOne({ managerId });
 
-    // if (!balance) {
-    //   throw BaseError.NotFoundError("Menejerning balansi topilmadi");
-    // }
-
-    // balance.dollar -= changes.dollar || 0;
-    // balance.sum -= changes.sum || 0;
-
-    // return await balance.save();
-
-    if (balance) {
-      balance.dollar -= changes.dollar || 0;
-      balance.sum -= changes.sum || 0;
-
-      return await balance.save();
+    if (!balance) {
+      // Agar balans yo'q bo'lsa, yangi yaratamiz
+      return await Balance.create({
+        managerId,
+        dollar: changes.dollar || 0,
+        sum: changes.sum || 0,
+      });
     }
+
+    // Balansga qo'shamiz (to'lov qabul qilganda)
+    balance.dollar += changes.dollar || 0;
+    balance.sum += changes.sum || 0;
+
+    return await balance.save();
   }
 
   async update(payData: PayDebtDto, user: IJwtUser) {
@@ -60,9 +59,10 @@ class PaymentSrvice {
       sum: 0,
     };
 
-    await this.subtractFromBalance(manager, {
-      dollar: oldCurrency.dollar - newCurrency.dollar,
-      sum: oldCurrency.sum - newCurrency.sum,
+    // To'lov qabul qilganda balansga qo'shamiz
+    await this.addToBalance(manager, {
+      dollar: payData.currencyDetails?.dollar || 0,
+      sum: payData.currencyDetails?.sum || 0,
     });
 
     const notes = new Notes({

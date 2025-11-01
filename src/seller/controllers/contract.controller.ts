@@ -20,7 +20,7 @@ class CustomerController {
           BaseError.BadRequest("Shartnoma ma'lumotlari xato.", formattedErrors)
         );
       }
-      const data = await contractService.create(customerData);
+      const data = await contractService.create(customerData, req.user?.sub);
       res.status(201).json(data);
     } catch (error) {
       console.log("error", error);

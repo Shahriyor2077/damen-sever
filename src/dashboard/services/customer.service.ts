@@ -74,12 +74,9 @@ class CustomerService {
           lastName: 1,
           phoneNumber: 1,
           address: 1,
+          passportSeries: 1,
+          birthDate: 1,
           createdAt: 1,
-          // manager: {
-          //   _id: 1,
-          //   firstName: 1,
-          //   lastName: 1,
-          // },
           manager: {
             $ifNull: [
               {

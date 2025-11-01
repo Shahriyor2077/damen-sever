@@ -5,6 +5,12 @@ import CurrencyCourse from "../../schemas/currency.schema";
 
 class DashboardSrvice {
   async dashboard(user: IJwtUser) {
+    // Valyuta kursini olish
+    const currencyCourse = await CurrencyCourse.findOne().sort({
+      createdAt: -1,
+    });
+    const exchangeRate = currencyCourse?.amount || 12500;
+
     const balance = await Balance.aggregate([
       {
         $match: {
@@ -14,7 +20,11 @@ class DashboardSrvice {
       {
         $project: {
           dollar: { $ifNull: ["$dollar", 0] },
-          sum: { $ifNull: ["$sum", 0] },
+          sum: {
+            $round: {
+              $multiply: [{ $ifNull: ["$dollar", 0] }, exchangeRate],
+            },
+          },
         },
       },
     ]);

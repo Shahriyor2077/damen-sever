@@ -17,6 +17,10 @@ class DashboardService {
         Debtor.countDocuments(),
       ]);
 
+    // Valyuta kursini olish
+    const currencyCourse = await Currency.findOne().sort({ createdAt: -1 });
+    const exchangeRate = currencyCourse?.amount || 12500; // Default: 1$ = 12500 so'm
+
     const [totalBalance] = await Balance.aggregate([
       {
         $group: {
@@ -38,6 +42,10 @@ class DashboardService {
       dollar: 0,
       sum: 0,
     };
+
+    // Balans (so'm) ni hisoblash: Balans ($) * dollar kursi
+    const calculatedBalance = totalBalance || defaultBalance;
+    const balanceInSum = Math.round(calculatedBalance.dollar * exchangeRate);
 
     const [initialPaymentData] = await Contract.aggregate([
       {
@@ -85,7 +93,10 @@ class DashboardService {
         customers: customerCount,
         contracts: contractCount,
         debtors: debtorCount,
-        totalBalance: totalBalance || defaultBalance,
+        totalBalance: {
+          dollar: calculatedBalance.dollar,
+          sum: balanceInSum, // Hisoblangan so'm miqdori
+        },
         financial: {
           totalContractPrice,
           initialPayment,
@@ -207,17 +218,25 @@ class DashboardService {
       };
     }
 
-    const payments = await Payment.aggregate([
+    // Debtor collection'idan to'lovlarni olish
+    const payments = await Debtor.aggregate([
       {
         $match: {
-          isPaid: true,
-          date: { $gte: startDate },
+          "payment.isPaid": true,
+          "payment.date": { $gte: startDate },
+          payment: { $exists: true },
         },
       },
       {
         $group: {
-          _id: groupBy,
-          totalAmount: { $sum: "$amount" },
+          _id: {
+            ...groupBy,
+            year: { $year: "$payment.date" },
+            month: { $month: "$payment.date" },
+            day:
+              range === "daily" ? { $dayOfMonth: "$payment.date" } : undefined,
+          },
+          totalAmount: { $sum: "$payment.amount" },
         },
       },
       {
