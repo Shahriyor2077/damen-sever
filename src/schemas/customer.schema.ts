@@ -15,6 +15,11 @@ export interface ICustomer extends IBase {
   // percent: number;
   auth: IAuth;
   manager: IEmployee;
+  files?: {
+    passport?: string;
+    shartnoma?: string;
+    photo?: string;
+  };
 }
 
 const CustomerSchema = new Schema<ICustomer>(
@@ -37,6 +42,11 @@ const CustomerSchema = new Schema<ICustomer>(
     manager: {
       type: Schema.Types.ObjectId,
       ref: "Employee",
+    },
+    files: {
+      passport: { type: String },
+      shartnoma: { type: String },
+      photo: { type: String },
     },
   },
   {

@@ -21,6 +21,7 @@ Nasiya savdo tizimi - bu nasiya asosida savdo qiluvchi bizneslar uchun to'liq bo
 - Mijozlar ma'lumotlari
 - Telegram integratsiyasi
 - Mijozlar tarixi
+- Hujjatlar yuklash (passport, shartnoma, foto)
 
 ### 📋 **Shartnomalar**
 

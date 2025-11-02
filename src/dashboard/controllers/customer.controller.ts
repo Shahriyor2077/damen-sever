@@ -86,7 +86,7 @@ class CustomerController {
           BaseError.BadRequest("Mijoz ma'lumotlari xato.", formattedErrors)
         );
       }
-      const data = await customerService.create(customerData, user);
+      const data = await customerService.create(customerData, user, req.files);
       res.status(201).json(data);
     } catch (error) {
       console.log("error", error);
@@ -105,7 +105,7 @@ class CustomerController {
           BaseError.BadRequest("Mijoz malumotlari xato.", formattedErrors)
         );
       }
-      const data = await customerService.update(customerData);
+      const data = await customerService.update(customerData, req.files);
       res.status(200).json(data);
     } catch (error) {
       return next(error);

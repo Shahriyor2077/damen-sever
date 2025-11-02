@@ -9,6 +9,7 @@ import debtorRoute from "./debtor.routes";
 import cashRoute from "./cash.routes";
 import paymentRoute from "./payment.routes";
 import expenseRoute from "./expenses.routes";
+import fileRoute from "./file.routes";
 
 const routes = Router();
 
@@ -21,5 +22,6 @@ routes.use("/debtor", debtorRoute);
 routes.use("/cash", cashRoute);
 routes.use("/payment", paymentRoute);
 routes.use("/expense", expenseRoute);
+routes.use("/file", fileRoute);
 
 export default routes;

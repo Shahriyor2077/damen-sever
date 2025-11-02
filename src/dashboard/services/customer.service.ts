@@ -216,7 +216,7 @@ class CustomerService {
     return { exists: Boolean(exists) };
   }
 
-  async create(data: CreateCustomerDto, user: IJwtUser) {
+  async create(data: CreateCustomerDto, user: IJwtUser, files?: any) {
     const createBy = await Employee.findById(user.sub);
     if (!createBy) {
       throw BaseError.ForbiddenError();
@@ -243,6 +243,21 @@ class CustomerService {
     }
     const auth = new Auth({});
     await auth.save();
+
+    // File paths
+    const customerFiles: any = {};
+    if (files) {
+      if (files.passport && files.passport[0]) {
+        customerFiles.passport = files.passport[0].path;
+      }
+      if (files.shartnoma && files.shartnoma[0]) {
+        customerFiles.shartnoma = files.shartnoma[0].path;
+      }
+      if (files.photo && files.photo[0]) {
+        customerFiles.photo = files.photo[0].path;
+      }
+    }
+
     const customer = new Customer({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -255,13 +270,51 @@ class CustomerService {
       auth,
       isActive: true,
       createBy,
+      files: customerFiles,
     });
     await customer.save();
     return { message: "Mijoz yaratildi.", customer };
   }
 
-  async update(data: UpdateCustomerDto) {
-    const customer = await Customer.findOneAndUpdate(
+  async update(data: UpdateCustomerDto, files?: any) {
+    const customer = await Customer.findOne({
+      _id: data.id,
+      isDeleted: false,
+    });
+
+    if (!customer) {
+      throw BaseError.NotFoundError("Mijoz topilmadi.");
+    }
+
+    // Eski fayllarni o'chirish (agar yangi fayl yuklangan bo'lsa)
+    const { deleteFile } = await import("../../middlewares/upload.middleware");
+    if (files) {
+      if (files.passport && files.passport[0] && customer.files?.passport) {
+        deleteFile(customer.files.passport);
+      }
+      if (files.shartnoma && files.shartnoma[0] && customer.files?.shartnoma) {
+        deleteFile(customer.files.shartnoma);
+      }
+      if (files.photo && files.photo[0] && customer.files?.photo) {
+        deleteFile(customer.files.photo);
+      }
+    }
+
+    // Yangi file paths
+    const customerFiles: any = { ...customer.files };
+    if (files) {
+      if (files.passport && files.passport[0]) {
+        customerFiles.passport = files.passport[0].path;
+      }
+      if (files.shartnoma && files.shartnoma[0]) {
+        customerFiles.shartnoma = files.shartnoma[0].path;
+      }
+      if (files.photo && files.photo[0]) {
+        customerFiles.photo = files.photo[0].path;
+      }
+    }
+
+    await Customer.findOneAndUpdate(
       { _id: data.id, isDeleted: false },
       {
         firstName: data.firstName,
@@ -269,31 +322,38 @@ class CustomerService {
         passportSeries: data.passportSeries,
         phoneNumber: data.phoneNumber,
         birthDate: data.birthDate,
-        // percent: data.percent,
         address: data.address,
         manager: data.managerId,
         isActive: true,
+        files: customerFiles,
       }
     ).exec();
-
-    if (!customer) {
-      throw BaseError.NotFoundError("Mijoz topilmadi.");
-    }
 
     return { message: "Mijoz ma'lumotlari yangilandi." };
   }
 
   async delete(id: string) {
-    const customer = await Customer.findByIdAndUpdate(
-      id,
-      {
-        isDeleted: true,
-      },
-      { new: true }
-    ).exec();
+    const customer = await Customer.findById(id);
     if (!customer) {
       throw BaseError.NotFoundError("Mijoz topilmadi.");
     }
+
+    // Fayllarni o'chirish
+    const { deleteFile } = await import("../../middlewares/upload.middleware");
+    if (customer.files) {
+      if (customer.files.passport) {
+        deleteFile(customer.files.passport);
+      }
+      if (customer.files.shartnoma) {
+        deleteFile(customer.files.shartnoma);
+      }
+      if (customer.files.photo) {
+        deleteFile(customer.files.photo);
+      }
+    }
+
+    customer.isDeleted = true;
+    await customer.save();
 
     return { message: "Mijoz o'chirildi." };
   }

@@ -135,7 +135,17 @@ public
 # =================================
 # UPLOADS & TEMP FILES
 # =================================
-uploads/
+uploads/*
+!uploads/.gitkeep
+!uploads/passport/
+!uploads/shartnoma/
+!uploads/photo/
+uploads/passport/*
+!uploads/passport/.gitkeep
+uploads/shartnoma/*
+!uploads/shartnoma/.gitkeep
+uploads/photo/*
+!uploads/photo/.gitkeep
 temp/
 tmp/
 *.tmp

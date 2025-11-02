@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Permission } from "../../enums/permission.enum";
 import { checkPermission } from "../../middlewares/CheckPermission.middleware";
+import { uploadCustomerFiles } from "../../middlewares/upload.middleware";
 import customerController from "../controllers/customer.controller";
 
 const router = Router();
@@ -44,6 +45,7 @@ router.get(
 router.post(
   "",
   checkPermission(Permission.CREATE_CUSTOMER),
+  uploadCustomerFiles,
   customerController.create
 );
 // seller
@@ -55,6 +57,7 @@ router.post(
 router.put(
   "",
   checkPermission(Permission.UPDATE_CUSTOMER),
+  uploadCustomerFiles,
   customerController.update
 );
 router.delete(
