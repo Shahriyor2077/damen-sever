@@ -6,7 +6,85 @@ import BaseError from "../../utils/base.error";
 import { CreateContractDtoForSeller } from "../validators/contract";
 import contractService from "../services/contract.service";
 
-class CustomerController {
+class ContractController {
+  // Faol shartnomalarni olish
+  async getActiveContracts(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.sub) {
+        return next(BaseError.UnauthorizedError());
+      }
+      const contracts = await contractService.getActiveContracts(req.user.sub);
+      res.status(200).json(contracts);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
+  // Yangi shartnomalarni olish
+  async getNewContracts(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.sub) {
+        return next(BaseError.UnauthorizedError());
+      }
+      const contracts = await contractService.getNewContracts(req.user.sub);
+      res.status(200).json(contracts);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
+  // Yopilgan shartnomalarni olish
+  async getCompletedContracts(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.sub) {
+        return next(BaseError.UnauthorizedError());
+      }
+      const contracts = await contractService.getCompletedContracts(
+        req.user.sub
+      );
+      res.status(200).json(contracts);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
+  // Shartnoma detailini olish
+  async getContractById(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.sub) {
+        return next(BaseError.UnauthorizedError());
+      }
+      const { id } = req.params;
+      const contract = await contractService.getContractById(id, req.user.sub);
+      res.status(200).json(contract);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
+  // Shartnomani tahrirlash
+  async updateContract(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user?.sub) {
+        return next(BaseError.UnauthorizedError());
+      }
+      const { id } = req.params;
+      const result = await contractService.updateContract(
+        id,
+        req.body,
+        req.user.sub
+      );
+      res.status(200).json(result);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const customerData = plainToInstance(
@@ -28,6 +106,7 @@ class CustomerController {
       return next(error);
     }
   }
+
   async post(req: Request, res: Response, next: NextFunction) {
     try {
       const customerData: any = req.body;
@@ -41,4 +120,4 @@ class CustomerController {
   }
 }
 
-export default new CustomerController();
+export default new ContractController();

@@ -51,20 +51,28 @@ class ContractController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log("🎯 CONTRACT CONTROLLER CREATE CALLED");
+      console.log("📦 Request body:", JSON.stringify(req.body, null, 2));
+      console.log("👤 User:", req.user);
+
       const user = req.user;
       const contractData = plainToInstance(CreateContractDto, req.body || {});
       const errors = await validate(contractData);
+
       if (errors.length > 0) {
+        console.log("❌ Validation errors:", errors);
         const formattedErrors = handleValidationErrors(errors);
         return next(
           BaseError.BadRequest("Shartnoma ma'lumotlari xato.", formattedErrors)
         );
       }
+
+      console.log("✅ Validation passed, calling service...");
       const data = await contractService.create(contractData, user);
+      console.log("✅ Service returned:", data);
       res.status(201).json(data);
     } catch (error) {
-      console.log("t", error);
-
+      console.log("❌ Controller error:", error);
       return next(error);
     }
   }
@@ -104,6 +112,17 @@ class ContractController {
     } catch (error) {
       console.log("er", error);
 
+      return next(error);
+    }
+  }
+
+  async approveContract(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      const data = await contractService.approveContract(id, user);
+      res.status(200).json(data);
+    } catch (error) {
       return next(error);
     }
   }

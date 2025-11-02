@@ -12,6 +12,7 @@ import { Types } from "mongoose";
 import Customer from "../../schemas/customer.schema";
 import Payment from "../../schemas/payment.schema";
 import { Balance } from "../../schemas/balance.schema";
+import { Debtor } from "../../schemas/debtor.schema";
 
 class ContractService {
   // Balansni yangilash funksiyasi
@@ -181,12 +182,43 @@ class ContractService {
         },
       },
       {
+        $lookup: {
+          from: "employees",
+          localField: "createBy",
+          foreignField: "_id",
+          as: "seller",
+          pipeline: [
+            {
+              $project: {
+                firstName: 1,
+                lastName: 1,
+              },
+            },
+          ],
+        },
+      },
+      {
         $addFields: {
           customerName: {
             $concat: [
               "$customer.firstName",
               " ",
               { $ifNull: ["$customer.lastName", ""] },
+            ],
+          },
+          sellerName: {
+            $cond: [
+              { $gt: [{ $size: "$seller" }, 0] },
+              {
+                $concat: [
+                  { $arrayElemAt: ["$seller.firstName", 0] },
+                  " ",
+                  {
+                    $ifNull: [{ $arrayElemAt: ["$seller.lastName", 0] }, ""],
+                  },
+                ],
+              },
+              "N/A",
             ],
           },
           notes: { $ifNull: [{ $arrayElemAt: ["$notes.text", 0] }, null] },
@@ -425,6 +457,7 @@ class ContractService {
 
       // 5. INITIAL PAYMENT'ni Payment collection'ga qo'shish
       const allPayments = [];
+      let totalPaidAmount = 0;
 
       if (initialPayment && initialPayment > 0) {
         console.log("💰 Processing initial payment:", initialPayment);
@@ -446,6 +479,7 @@ class ContractService {
         });
         await initialPaymentDoc.save();
         allPayments.push(initialPaymentDoc._id);
+        totalPaidAmount += initialPayment;
 
         console.log(
           "✅ Initial payment saved to Payment collection:",
@@ -477,6 +511,7 @@ class ContractService {
 
         await newPayment.save();
         allPayments.push(newPayment._id);
+        totalPaidAmount += payment.amount;
         console.log("✅ Additional payment saved:", newPayment._id);
       }
 
@@ -487,19 +522,17 @@ class ContractService {
         console.log("🔗 All payments linked to contract:", allPayments.length);
       }
 
-      // 8. Balance yangilash
-      if (initialPayment && initialPayment > 0) {
+      // 8. Balance yangilash (barcha to'lovlar uchun)
+      if (totalPaidAmount > 0) {
         await this.updateBalance(createBy._id, {
-          dollar: initialPayment,
+          dollar: totalPaidAmount,
           sum: 0,
         });
-        console.log("💵 Balance updated with initial payment:", initialPayment);
+        console.log("💵 Balance updated with total payments:", totalPaidAmount);
       }
 
-      // 9. Har qanday holatda ham Debtor yaratish
+      // 9. Debtor yaratish
       try {
-        const { Debtor } = await import("../../schemas/debtor.schema");
-
         const newDebtor = await Debtor.create({
           contractId: contract._id,
           debtAmount: monthlyPayment,
@@ -521,7 +554,7 @@ class ContractService {
         message: "Shartnoma yaratildi.",
         contractId: contract._id,
         paymentsCount: allPayments.length,
-        initialPaymentProcessed: initialPayment > 0,
+        totalPaid: totalPaidAmount,
       };
     } catch (error) {
       console.error("❌ === CONTRACT CREATION FAILED ===");
@@ -648,6 +681,110 @@ class ContractService {
     await contract.save();
     return { message: "Shartnoma yaratildi." };
   }
-}
 
+  async approveContract(contractId: string, user: IJwtUser) {
+    try {
+      console.log("🔍 Approving contract:", contractId);
+
+      const contract = await Contract.findOne({
+        _id: contractId,
+        isDeleted: false,
+        isActive: false,
+      });
+
+      if (!contract) {
+        throw BaseError.NotFoundError(
+          "Shartnoma topilmadi yoki allaqachon tasdiqlangan"
+        );
+      }
+
+      const approver = await Employee.findById(user.sub).populate("role");
+      if (!approver) {
+        throw BaseError.ForbiddenError("Mavjud bo'lmagan xodim");
+      }
+
+      // Faqat admin, moderator, manager tasdiqlashi mumkin
+      const allowedRoles = ["admin", "moderator", "manager"];
+      if (!allowedRoles.includes(approver.role?.name || "")) {
+        throw BaseError.ForbiddenError(
+          "Shartnomani tasdiqlash uchun ruxsat yo'q"
+        );
+      }
+
+      // Shartnomani tasdiqlash
+      contract.isActive = true;
+      await contract.save();
+
+      // Initial payment'ni Payment collection'ga qo'shish
+      const allPayments = [];
+
+      if (contract.initialPayment && contract.initialPayment > 0) {
+        const initialPaymentNote = new Notes({
+          text: `Boshlang'ich to'lov: ${contract.initialPayment}`,
+          customer: contract.customer,
+          createBy: approver._id,
+        });
+        await initialPaymentNote.save();
+
+        const initialPaymentDoc = new Payment({
+          amount: contract.initialPayment,
+          date: contract.startDate,
+          isPaid: true,
+          customerId: contract.customer,
+          managerId: approver._id,
+          notes: initialPaymentNote._id,
+        });
+        await initialPaymentDoc.save();
+        allPayments.push(initialPaymentDoc._id);
+
+        console.log(
+          "✅ Initial payment saved to Payment collection:",
+          initialPaymentDoc._id
+        );
+      }
+
+      // Contract'ga to'lovlarni bog'lash
+      if (allPayments.length > 0) {
+        contract.payments = allPayments.map((id) => id.toString());
+        await contract.save();
+      }
+
+      // Balance yangilash
+      if (contract.initialPayment && contract.initialPayment > 0) {
+        await this.updateBalance(approver._id, {
+          dollar: contract.initialPayment,
+          sum: 0,
+        });
+      }
+
+      // Debtor yaratish
+      try {
+        await Debtor.create({
+          contractId: contract._id,
+          debtAmount: contract.monthlyPayment,
+          createBy: approver._id,
+          currencyDetails: {
+            dollar: 0,
+            sum: 0,
+          },
+          currencyCourse: 12500,
+        });
+
+        console.log("⚠️ Debtor created for approved contract");
+      } catch (debtorError) {
+        console.error("❌ Error creating debtor:", debtorError);
+      }
+
+      console.log("✅ Contract approved:", contract._id);
+
+      return {
+        message: "Shartnoma tasdiqlandi va faollashtirildi",
+        contractId: contract._id,
+      };
+    } catch (error) {
+      console.error("❌ Error approving contract:", error);
+      throw error;
+    }
+  }
+}
 export default new ContractService();

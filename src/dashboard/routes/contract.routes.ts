@@ -46,4 +46,11 @@ router.post(
   checkPermission(Permission.CONTRACT_CREATE_MANAGER),
   contractController.sellerCreate
 );
+
+router.post(
+  "/approve/:id",
+  checkPermission(Permission.UPDATE_CONTRACT),
+  contractController.approveContract
+);
+
 export default router;
