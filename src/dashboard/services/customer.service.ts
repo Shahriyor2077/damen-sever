@@ -410,7 +410,11 @@ class CustomerService {
     return { status: "ok", message: "Menejer yangilandi" };
   }
 
-  async sellerCreate(data: SellerCreateCustomerDto, user: IJwtUser) {
+  async sellerCreate(
+    data: SellerCreateCustomerDto,
+    user: IJwtUser,
+    files?: any
+  ) {
     const createBy = await Employee.findById(user.sub);
     if (!createBy) {
       throw BaseError.ForbiddenError();
@@ -437,6 +441,21 @@ class CustomerService {
     }
     const auth = new Auth({});
     await auth.save();
+
+    // File paths
+    const customerFiles: any = {};
+    if (files) {
+      if (files.passport && files.passport[0]) {
+        customerFiles.passport = files.passport[0].path;
+      }
+      if (files.shartnoma && files.shartnoma[0]) {
+        customerFiles.shartnoma = files.shartnoma[0].path;
+      }
+      if (files.photo && files.photo[0]) {
+        customerFiles.photo = files.photo[0].path;
+      }
+    }
+
     const customer = new Customer({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -447,6 +466,7 @@ class CustomerService {
       auth,
       isActive: false,
       createBy,
+      files: customerFiles,
     });
     await customer.save();
     return { message: "Mijoz yaratildi.", customer };

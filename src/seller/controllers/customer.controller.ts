@@ -9,6 +9,7 @@ import { CreateCustomerDtoForSeller } from "../validators/customer";
 class CustomerController {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
+      const user = req.user;
       const customerData = plainToInstance(
         CreateCustomerDtoForSeller,
         req.body || {}
@@ -20,7 +21,7 @@ class CustomerController {
           BaseError.BadRequest("Mijoz ma'lumotlari xato.", formattedErrors)
         );
       }
-      const data = await customerService.create(customerData);
+      const data = await customerService.create(customerData, user, req.files);
       res.status(201).json(data);
     } catch (error) {
       console.log("error", error);

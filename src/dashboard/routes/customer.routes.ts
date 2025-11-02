@@ -52,6 +52,7 @@ router.post(
 router.post(
   "/seller",
   checkPermission(Permission.CUSTOMER_CREATE_MANAGER),
+  uploadCustomerFiles,
   customerController.sellerCreate
 );
 router.put(

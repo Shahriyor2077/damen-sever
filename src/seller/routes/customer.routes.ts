@@ -1,12 +1,10 @@
 import { Router } from "express";
+import { uploadCustomerFiles } from "../../middlewares/upload.middleware";
+import AuthMiddleware from "../../middlewares/auth.middleware";
 import customerController from "../controllers/customer.controller";
 
 const router = Router();
 
-router.post(
-  "",
-  // checkPermission(Permission.CREATE_EMPLOYEE),
-  customerController.create
-);
+router.post("", AuthMiddleware, uploadCustomerFiles, customerController.create);
 
 export default router;

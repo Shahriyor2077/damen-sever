@@ -1,26 +1,57 @@
 import BaseError from "../../utils/base.error";
-
 import Auth from "../../schemas/auth.schema";
 import Customer from "../../schemas/customer.schema";
+import Employee from "../../schemas/employee.schema";
 import { CreateCustomerDtoForSeller } from "../validators/customer";
+import IJwtUser from "../../types/user";
 
 class CustomerService {
-  async create(data: CreateCustomerDtoForSeller) {
-    const customerNumber = await Customer.findOne({
-      phoneNumber: data.phoneNumber,
-    });
-    const customerSeries = await Customer.findOne({
-      passportSeries: data.passportSeries,
-    });
-    if (customerNumber) {
-      throw BaseError.BadRequest(`Number already exist!`);
+  async create(data: CreateCustomerDtoForSeller, user: IJwtUser, files?: any) {
+    const createBy = await Employee.findById(user.sub);
+    if (!createBy) {
+      throw BaseError.ForbiddenError();
     }
-    if (customerSeries) {
-      throw BaseError.BadRequest(`Passport Series already exist!`);
+
+    if (data.phoneNumber) {
+      const customerNumber = await Customer.findOne({
+        phoneNumber: data.phoneNumber,
+      });
+      if (customerNumber) {
+        throw BaseError.BadRequest(
+          "Ushbu telefon raqami bilan mijoz allaqachon mavjud."
+        );
+      }
     }
+
+    if (data.passportSeries) {
+      const customerSeries = await Customer.findOne({
+        passportSeries: data.passportSeries,
+      });
+      if (customerSeries) {
+        throw BaseError.BadRequest(
+          "Ushbu passport seriyasi bilan mijoz allaqachon mavjud."
+        );
+      }
+    }
+
     const auth = new Auth({});
     await auth.save();
-    const employee = new Customer({
+
+    // File paths
+    const customerFiles: any = {};
+    if (files) {
+      if (files.passport && files.passport[0]) {
+        customerFiles.passport = files.passport[0].path;
+      }
+      if (files.shartnoma && files.shartnoma[0]) {
+        customerFiles.shartnoma = files.shartnoma[0].path;
+      }
+      if (files.photo && files.photo[0]) {
+        customerFiles.photo = files.photo[0].path;
+      }
+    }
+
+    const customer = new Customer({
       firstName: data.firstName,
       lastName: data.lastName,
       phoneNumber: data.phoneNumber,
@@ -28,9 +59,12 @@ class CustomerService {
       passportSeries: data.passportSeries,
       birthDate: data.birthDate,
       auth,
+      isActive: false,
+      createBy,
+      files: customerFiles,
     });
-    await employee.save();
-    return { message: "Mijoz qo'shildi." };
+    await customer.save();
+    return { message: "Mijoz yaratildi.", customer };
   }
 }
 
