@@ -10,6 +10,12 @@ router.put(
   paymentController.update
 );
 
+router.post(
+  "/contract",
+  checkPermission(Permission.UPDATE_CASH),
+  paymentController.payByContract
+);
+
 router.get(
   "/history",
   checkPermission(Permission.VIEW_PAYMENT),

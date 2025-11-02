@@ -84,6 +84,14 @@ class ContractService {
         },
       },
       {
+        $lookup: {
+          from: "payments",
+          localField: "payments",
+          foreignField: "_id",
+          as: "payments",
+        },
+      },
+      {
         $addFields: {
           notes: { $ifNull: [{ $arrayElemAt: ["$notes.text", 0] }, null] },
           customer: {
@@ -114,6 +122,33 @@ class ContractService {
               },
               null,
             ],
+          },
+          totalPaid: {
+            $add: [
+              {
+                $sum: {
+                  $map: {
+                    input: {
+                      $filter: {
+                        input: "$payments",
+                        as: "p",
+                        cond: { $eq: ["$$p.isPaid", true] },
+                      },
+                    },
+                    as: "pp",
+                    in: "$$pp.amount",
+                  },
+                },
+              },
+              "$initialPayment",
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          remainingDebt: {
+            $subtract: ["$totalPrice", "$totalPaid"],
           },
         },
       },
@@ -345,11 +380,11 @@ class ContractService {
                       $filter: {
                         input: "$payments",
                         as: "p",
-                        cond: { $eq: ["$p.isPaid", true] },
+                        cond: { $eq: ["$$p.isPaid", true] },
                       },
                     },
                     as: "pp",
-                    in: "$pp.amount",
+                    in: "$$pp.amount",
                   },
                 },
               },

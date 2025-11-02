@@ -7,6 +7,16 @@ import customerService from "../services/customer.service";
 import { CreateCustomerDtoForSeller } from "../validators/customer";
 
 class CustomerController {
+  async getAllNew(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user.sub;
+      const data = await customerService.getAllNew(userId);
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const user = req.user;

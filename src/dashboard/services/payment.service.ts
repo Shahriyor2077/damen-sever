@@ -344,6 +344,78 @@ class PaymentSrvice {
       message: "To'lov amalga oshirildi",
     };
   }
+
+  async payByContract(
+    payData: {
+      contractId: string;
+      amount: number;
+      notes?: string;
+      currencyDetails: { dollar: number; sum: number };
+      currencyCourse: number;
+    },
+    user: IJwtUser
+  ) {
+    const contract = await Contract.findById(payData.contractId).populate(
+      "customer"
+    );
+
+    if (!contract) {
+      throw BaseError.NotFoundError("Shartnoma topilmadi");
+    }
+
+    const manager = await Employee.findById(user.sub);
+
+    if (!manager) {
+      throw BaseError.NotFoundError("Manager topilmadi");
+    }
+
+    // To'lov qabul qilganda balansga qo'shamiz
+    await this.addToBalance(manager, {
+      dollar: payData.currencyDetails?.dollar || 0,
+      sum: payData.currencyDetails?.sum || 0,
+    });
+
+    // Notes yaratish
+    const notes = new Notes({
+      text: payData.notes || `To'lov: ${payData.amount}$`,
+      customer: contract.customer,
+      createBy: manager,
+    });
+    await notes.save();
+
+    // Payment document yaratish
+    const paymentDoc = new (
+      await import("../../schemas/payment.schema")
+    ).default({
+      amount: payData.amount,
+      date: new Date(),
+      isPaid: true,
+      notes: notes._id,
+      customerId: contract.customer,
+      managerId: manager._id,
+    });
+    await paymentDoc.save();
+
+    // Shartnomaga to'lovni qo'shish
+    if (!contract.payments) {
+      contract.payments = [];
+    }
+    (contract.payments as string[]).push(paymentDoc._id.toString());
+    await contract.save();
+
+    console.log("✅ Payment added to contract:", {
+      contractId: contract._id,
+      paymentId: paymentDoc._id,
+      amount: payData.amount,
+      totalPayments: contract.payments.length,
+    });
+
+    return {
+      status: "success",
+      message: "To'lov muvaffaqiyatli amalga oshirildi",
+      contractId: contract._id,
+    };
+  }
 }
 
 export default new PaymentSrvice();

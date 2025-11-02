@@ -45,5 +45,32 @@ class PaymentController {
       return next(error);
     }
   }
+
+  async payByContract(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { contractId, amount, notes, currencyDetails, currencyCourse } =
+        req.body;
+
+      if (!contractId || !amount || !currencyDetails || !currencyCourse) {
+        return next(BaseError.BadRequest("To'lov ma'lumotlari to'liq emas"));
+      }
+
+      const data = await paymentService.payByContract(
+        {
+          contractId,
+          amount,
+          notes,
+          currencyDetails,
+          currencyCourse,
+        },
+        user
+      );
+
+      res.status(201).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 export default new PaymentController();

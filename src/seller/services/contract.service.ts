@@ -40,7 +40,6 @@ class ContractService {
           isDeleted: false,
           isActive: true,
           status: ContractStatus.ACTIVE,
-          createBy: new Types.ObjectId(userId),
         },
       },
       {
@@ -121,7 +120,6 @@ class ContractService {
           isDeleted: false,
           isActive: false,
           status: ContractStatus.ACTIVE,
-          createBy: new Types.ObjectId(userId),
         },
       },
       {
@@ -200,7 +198,6 @@ class ContractService {
           isDeleted: false,
           isActive: true,
           status: ContractStatus.COMPLETED,
-          createBy: new Types.ObjectId(userId),
         },
       },
       {
@@ -270,7 +267,6 @@ class ContractService {
         $match: {
           isDeleted: false,
           _id: new Types.ObjectId(contractId),
-          createBy: new Types.ObjectId(userId),
         },
       },
       {
@@ -361,11 +357,11 @@ class ContractService {
                       $filter: {
                         input: "$payments",
                         as: "p",
-                        cond: { $eq: ["$p.isPaid", true] },
+                        cond: { $eq: ["$$p.isPaid", true] },
                       },
                     },
                     as: "pp",
-                    in: "$pp.amount",
+                    in: "$$pp.amount",
                   },
                 },
               },
@@ -396,14 +392,11 @@ class ContractService {
   async updateContract(contractId: string, data: any, userId: string) {
     const contract = await Contract.findOne({
       _id: contractId,
-      createBy: userId,
       isDeleted: false,
     }).populate("notes");
 
     if (!contract) {
-      throw BaseError.NotFoundError(
-        "Shartnoma topilmadi yoki sizga tegishli emas"
-      );
+      throw BaseError.NotFoundError("Shartnoma topilmadi");
     }
 
     // Notes yangilash
@@ -414,7 +407,7 @@ class ContractService {
 
     // Shartnoma ma'lumotlarini yangilash
     const updatedContract = await Contract.findOneAndUpdate(
-      { _id: contractId, createBy: userId, isDeleted: false },
+      { _id: contractId, isDeleted: false },
       {
         productName: data.productName,
         originalPrice: data.originalPrice,

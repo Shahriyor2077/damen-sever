@@ -4,8 +4,19 @@ import Customer from "../../schemas/customer.schema";
 import Employee from "../../schemas/employee.schema";
 import { CreateCustomerDtoForSeller } from "../validators/customer";
 import IJwtUser from "../../types/user";
+import { Types } from "mongoose";
 
 class CustomerService {
+  // Barcha yangi mijozlarni ko'rish
+  async getAllNew(userId: string) {
+    const query: any = {
+      isDeleted: false,
+      isActive: false,
+    };
+    const customers = await Customer.find(query).sort({ createdAt: -1 });
+    return customers;
+  }
+
   async create(data: CreateCustomerDtoForSeller, user: IJwtUser, files?: any) {
     const createBy = await Employee.findById(user.sub);
     if (!createBy) {
