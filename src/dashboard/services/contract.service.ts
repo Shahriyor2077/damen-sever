@@ -22,22 +22,30 @@ class ContractService {
       sum?: number;
     }
   ) {
-    const balance = await Balance.findOne({ managerId });
+    try {
+      let balance = await Balance.findOne({ managerId });
 
-    if (!balance) {
-      // Agar balans yo'q bo'lsa, yangi yaratamiz
-      return await Balance.create({
-        managerId,
-        dollar: changes.dollar || 0,
-        sum: changes.sum || 0,
-      });
+      if (!balance) {
+        // Agar balans yo'q bo'lsa, yangi yaratamiz
+        balance = await Balance.create({
+          managerId,
+          dollar: changes.dollar || 0,
+          sum: changes.sum || 0,
+        });
+        console.log("✅ New balance created:", balance._id);
+      } else {
+        // Balansga qo'shamiz
+        balance.dollar += changes.dollar || 0;
+        balance.sum += changes.sum || 0;
+        await balance.save();
+        console.log("✅ Balance updated:", balance._id);
+      }
+
+      return balance;
+    } catch (error) {
+      console.error("❌ Error updating balance:", error);
+      throw error;
     }
-
-    // Balansga qo'shamiz
-    balance.dollar += changes.dollar || 0;
-    balance.sum += changes.sum || 0;
-
-    return await balance.save();
   }
 
   async getAll() {
@@ -84,31 +92,15 @@ class ContractService {
               null,
             ],
           },
-          // customerName: {
-          //   $cond: [
-          //     { $gt: [{ $size: "$customer" }, 0] },
-          //     {
-          //       $concat: [
-          //         { $arrayElemAt: ["$customer.firstName", 0] },
-          //         " ",
-          //         {
-          //           $ifNull: [{ $arrayElemAt: ["$customer.lastName", 0] }, ""],
-          //         },
-          //       ],
-          //     },
-          //     null,
-          //   ],
-          // },
           customerName: {
             $cond: [
               { $gt: [{ $size: "$customer" }, 0] },
               {
                 $concat: [
-                  // ✅ Sana formatlash (kun.oy.yil)
                   {
                     $dateToString: {
                       format: "%d",
-                      date: "$startDate", // yoki "$startDate" agar kerak bo‘lsa
+                      date: "$startDate",
                     },
                   },
                   " ",
@@ -217,50 +209,6 @@ class ContractService {
           status: ContractStatus.COMPLETED,
         },
       },
-      // {
-      //   $lookup: {
-      //     from: "customers",
-      //     localField: "customer",
-      //     foreignField: "_id",
-      //     as: "customer",
-      //     pipeline: [
-      //       {
-      //         $project: {
-      //           _id: 1,
-      //           firstName: 1,
-      //           lastName: 1,
-      //         },
-      //       },
-      //     ],
-      //   },
-      // },
-      // { $unwind: "$customer" },
-      // {
-      //   $lookup: {
-      //     from: "notes",
-      //     localField: "notes",
-      //     foreignField: "_id",
-      //     as: "notes",
-      //     pipeline: [{ $project: { text: 1 } }],
-      //   },
-      // },
-      // {
-      //   $addFields: {
-      //     customerName: {
-      //       $concat: [
-      //         "$customer.firstName",
-      //         " ",
-      //         { $ifNull: ["$customer.lastName", ""] },
-      //       ],
-      //     },
-      //     notes: { $ifNull: [{ $arrayElemAt: ["$notes.text", 0] }, null] },
-      //   },
-      // },
-      // {
-      //   $sort: {
-      //     createdAt: -1,
-      //   },
-      // },
     ]);
     console.log("ll", t);
 
@@ -365,11 +313,11 @@ class ContractService {
                       $filter: {
                         input: "$payments",
                         as: "p",
-                        cond: { $eq: ["$$p.isPaid", true] },
+                        cond: { $eq: ["$p.isPaid", true] },
                       },
                     },
                     as: "pp",
-                    in: "$$pp.amount",
+                    in: "$pp.amount",
                   },
                 },
               },
@@ -390,107 +338,196 @@ class ContractService {
   }
 
   async create(data: CreateContractDto, user: IJwtUser) {
-    const {
-      customer,
-      productName,
-      originalPrice,
-      price,
-      initialPayment,
-      percentage,
-      period,
-      monthlyPayment,
-      initialPaymentDueDate,
-      notes,
-      totalPrice,
-      box,
-      mbox,
-      receipt,
-      iCloud,
-      startDate,
-      payments = [],
-    } = data;
-    const createBy = await Employee.findById(user.sub);
-    if (!createBy) {
-      throw BaseError.ForbiddenError("Mavjud bo'lmagan xodim");
-    }
-    // const startDate = new Date();
-    const newNotes = new Notes({ text: notes, customer, createBy });
-    await newNotes.save();
+    try {
+      console.log("🚀 === CONTRACT CREATION STARTED ===");
+      console.log("📋 Input data:", {
+        customer: data.customer,
+        productName: data.productName,
+        initialPayment: data.initialPayment,
+        totalPrice: data.totalPrice,
+        paymentsCount: data.payments?.length || 0,
+      });
 
-    const contractStartDate = startDate ? new Date(startDate) : new Date();
-
-    const contract = new Contract({
-      customer,
-      productName,
-      originalPrice,
-      price,
-      initialPayment,
-      percentage,
-      period,
-      monthlyPayment,
-      initialPaymentDueDate,
-      notes: newNotes,
-      totalPrice,
-      startDate,
-      nextPaymentDate: initialPaymentDueDate,
-      isActive: true,
-      createBy,
-      info: {
+      const {
+        customer,
+        productName,
+        originalPrice,
+        price,
+        initialPayment,
+        percentage,
+        period,
+        monthlyPayment,
+        initialPaymentDueDate,
+        notes,
+        totalPrice,
         box,
         mbox,
         receipt,
         iCloud,
-      },
-    });
-    const savedPayments = [];
+        startDate,
+        payments = [],
+      } = data;
 
-    for (const payment of payments) {
-      // Izoh mavjud bo‘lsa alohida notes hujjati yaratamiz
-      // let paymentNote = undefined;
-      // if (payment.note && payment.note.trim() !== "") {
-      const paymentNote = new Notes({
-        text: payment.note || payment.amount,
+      // 1. Employee tekshirish
+      const createBy = await Employee.findById(user.sub);
+      if (!createBy) {
+        throw BaseError.ForbiddenError("Mavjud bo'lmagan xodim");
+      }
+      console.log("👤 Employee found:", createBy._id);
+
+      // 2. Customer tekshirish
+      const customerDoc = await Customer.findById(customer);
+      if (!customerDoc) {
+        throw BaseError.NotFoundError("Mijoz topilmadi");
+      }
+      console.log("🤝 Customer found:", customerDoc._id);
+
+      // 3. Notes yaratish
+      const newNotes = new Notes({
+        text: notes || "Shartnoma yaratildi",
         customer,
-        createBy,
+        createBy: createBy._id,
       });
-      await paymentNote.save();
-      // }
+      await newNotes.save();
+      console.log("📝 Notes created:", newNotes._id);
 
-      if (!payment.amount || payment.amount <= 0) {
-        // Miqdor yo'q bo'lsa saqlamaslik yoki xatolik
-        continue;
+      // 4. Shartnoma yaratish
+      const contractStartDate = startDate ? new Date(startDate) : new Date();
+      const contract = new Contract({
+        customer,
+        productName,
+        originalPrice,
+        price,
+        initialPayment,
+        percentage,
+        period,
+        monthlyPayment,
+        initialPaymentDueDate: new Date(initialPaymentDueDate),
+        notes: newNotes._id,
+        totalPrice,
+        startDate: contractStartDate,
+        nextPaymentDate: new Date(initialPaymentDueDate),
+        isActive: true,
+        createBy: createBy._id,
+        info: {
+          box: box || false,
+          mbox: mbox || false,
+          receipt: receipt || false,
+          iCloud: iCloud || false,
+        },
+        payments: [],
+        isDeclare: false,
+        status: ContractStatus.ACTIVE,
+      });
+
+      await contract.save();
+      console.log("📋 Contract created:", contract._id);
+
+      // 5. INITIAL PAYMENT'ni Payment collection'ga qo'shish
+      const allPayments = [];
+
+      if (initialPayment && initialPayment > 0) {
+        console.log("💰 Processing initial payment:", initialPayment);
+
+        const initialPaymentNote = new Notes({
+          text: `Boshlang'ich to'lov: ${initialPayment}`,
+          customer,
+          createBy: createBy._id,
+        });
+        await initialPaymentNote.save();
+
+        const initialPaymentDoc = new Payment({
+          amount: initialPayment,
+          date: contractStartDate,
+          isPaid: true,
+          customerId: customer,
+          managerId: createBy._id,
+          notes: initialPaymentNote._id,
+        });
+        await initialPaymentDoc.save();
+        allPayments.push(initialPaymentDoc._id);
+
+        console.log(
+          "✅ Initial payment saved to Payment collection:",
+          initialPaymentDoc._id
+        );
       }
 
-      const newPayment = new Payment({
-        amount: payment.amount,
-        date: new Date(payment.date),
-        isPaid: true,
-        customerId: customer,
-        managerId: createBy._id,
-        notes: paymentNote?._id, // bo‘lishi mumkin yoki undefined
-      });
+      // 6. Additional payments yaratish
+      for (const payment of payments) {
+        if (!payment.amount || payment.amount <= 0) {
+          continue;
+        }
 
-      await newPayment.save();
-      savedPayments.push(newPayment._id);
+        const paymentNote = new Notes({
+          text: payment.note || `To'lov: ${payment.amount}`,
+          customer,
+          createBy: createBy._id,
+        });
+        await paymentNote.save();
+
+        const newPayment = new Payment({
+          amount: payment.amount,
+          date: new Date(payment.date),
+          isPaid: true,
+          customerId: customer,
+          managerId: createBy._id,
+          notes: paymentNote._id,
+        });
+
+        await newPayment.save();
+        allPayments.push(newPayment._id);
+        console.log("✅ Additional payment saved:", newPayment._id);
+      }
+
+      // 7. Contract'ga barcha to'lovlarni bog'lash
+      if (allPayments.length > 0) {
+        contract.payments = allPayments.map((id) => id.toString());
+        await contract.save();
+        console.log("🔗 All payments linked to contract:", allPayments.length);
+      }
+
+      // 8. Balance yangilash
+      if (initialPayment && initialPayment > 0) {
+        await this.updateBalance(createBy._id, {
+          dollar: initialPayment,
+          sum: 0,
+        });
+        console.log("💵 Balance updated with initial payment:", initialPayment);
+      }
+
+      // 9. Har qanday holatda ham Debtor yaratish
+      try {
+        const { Debtor } = await import("../../schemas/debtor.schema");
+
+        const newDebtor = await Debtor.create({
+          contractId: contract._id,
+          debtAmount: monthlyPayment,
+          createBy: createBy._id,
+          currencyDetails: {
+            dollar: 0,
+            sum: 0,
+          },
+          currencyCourse: 12500,
+        });
+
+        console.log("⚠️ Debtor created:", newDebtor._id);
+      } catch (debtorError) {
+        console.error("❌ Error creating debtor:", debtorError);
+      }
+
+      console.log("🎉 === CONTRACT CREATION COMPLETED ===");
+      return {
+        message: "Shartnoma yaratildi.",
+        contractId: contract._id,
+        paymentsCount: allPayments.length,
+        initialPaymentProcessed: initialPayment > 0,
+      };
+    } catch (error) {
+      console.error("❌ === CONTRACT CREATION FAILED ===");
+      console.error("Error:", error);
+      throw error;
     }
-
-    // If contract.payments expects ObjectId[], assign as is:
-    // contract.payments = savedPayments;
-
-    // If contract.payments expects IPayment[], populate the payments:
-    contract.payments = await Payment.find({ _id: { $in: savedPayments } });
-
-    await contract.save();
-
-    // Initial payment balansga qo'shish
-    if (initialPayment && initialPayment > 0) {
-      await this.updateBalance(createBy._id, {
-        dollar: initialPayment, // Initial payment dollar hisobida
-        sum: 0,
-      });
-    }
-
-    return { message: "Shartnoma yaratildi." };
   }
 
   async update(data: UpdateContractDto, user: IJwtUser) {

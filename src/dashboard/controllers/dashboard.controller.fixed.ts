@@ -4,23 +4,20 @@ import BaseError from "../../utils/base.error";
 
 class DashboardController {
   async dashboard(req: Request, res: Response, next: NextFunction) {
-    console.log("=== DASHBOARD ENDPOINT START ===");
-
     try {
-      console.log("Calling dashboard service...");
       const data = await dashboardService.dashboard();
-      console.log("Dashboard service response:", data);
       res.status(201).json(data);
     } catch (error) {
-      console.error("Dashboard error:", error);
       return next(error);
     }
   }
+
   async statistic(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("Statistic endpoint called with range:", req.query.range);
+      console.log("=== STATISTIC ENDPOINT CALLED ===");
+      console.log("Query params:", req.query);
 
-      // Sodda statistic - faqat oxirgi 12 oy
+      // Test data - Oktyabr oyida 50 dollar to'lov
       const monthNames = [
         "Dec",
         "Jan",
@@ -80,11 +77,11 @@ class DashboardController {
         series: monthlyData,
       };
 
-      console.log("Returning statistic result:", result);
+      console.log("Returning result:", result);
       res.status(200).json(result);
     } catch (error) {
       console.error("Statistic error:", error);
-      return next(error);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 
@@ -110,4 +107,5 @@ class DashboardController {
     }
   }
 }
+
 export default new DashboardController();

@@ -6,6 +6,7 @@ import seedRoles from "./utils/createRole";
 import startBot from "./bot/startBot";
 import bot from "./bot/main";
 import createCurrencyCourse from "./utils/createCurrencyCourse";
+import debtorService from "./dashboard/services/debtor.service";
 
 const PORT = process.env.PORT || 3000;
 
@@ -19,6 +20,25 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
+
+    // Avtomatik debtor yaratish (har 24 soatda)
+    setInterval(async () => {
+      try {
+        await debtorService.createOverdueDebtors();
+      } catch (error) {
+        console.error("Error in automatic debtor creation:", error);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 soat
+
+    // Server ishga tushganda bir marta ham ishlatish
+    setTimeout(async () => {
+      try {
+        await debtorService.createOverdueDebtors();
+      } catch (error) {
+        console.error("Error in initial debtor creation:", error);
+      }
+    }, 5000); // 5 soniya kutish
+
     const used = process.memoryUsage().heapUsed / 1024 / 1024;
     console.log(`Dastur xotira iste'moli: ${Math.round(used * 100) / 100} MB`);
   } catch (error) {

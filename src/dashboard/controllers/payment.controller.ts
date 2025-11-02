@@ -32,5 +32,18 @@ class PaymentController {
       return next(error);
     }
   }
+
+  async getPaymentHistory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { customerId, contractId } = req.query;
+      const data = await paymentService.getPaymentHistory(
+        customerId as string,
+        contractId as string
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 export default new PaymentController();

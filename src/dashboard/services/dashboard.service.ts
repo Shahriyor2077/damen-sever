@@ -218,8 +218,28 @@ class DashboardService {
       };
     }
 
-    // Debtor collection'idan to'lovlarni olish
-    const payments = await Debtor.aggregate([
+    // 1. Payment collection'dan to'lovlarni olish
+    const directPayments = await Payment.aggregate([
+      {
+        $match: {
+          isPaid: true,
+          date: { $gte: startDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+            day: range === "daily" ? { $dayOfMonth: "$date" } : undefined,
+          },
+          totalAmount: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    // 2. Debtor collection'dan to'lovlarni olish
+    const debtorPayments = await Debtor.aggregate([
       {
         $match: {
           "payment.isPaid": true,
@@ -230,7 +250,6 @@ class DashboardService {
       {
         $group: {
           _id: {
-            ...groupBy,
             year: { $year: "$payment.date" },
             month: { $month: "$payment.date" },
             day:
@@ -239,14 +258,71 @@ class DashboardService {
           totalAmount: { $sum: "$payment.amount" },
         },
       },
-      {
-        $sort: {
-          "_id.year": 1,
-          "_id.month": 1,
-          "_id.day": 1,
-        },
-      },
     ]);
+
+    // 3. Barcha to'lovlarni birlashtirish
+    const allPayments = [...directPayments, ...debtorPayments];
+
+    // 4. Bir xil sana bo'yicha to'lovlarni jamlash
+    const paymentMap = new Map<string, number>();
+
+    for (const payment of allPayments) {
+      const key =
+        range === "daily"
+          ? `${payment._id.year}-${payment._id.month}-${payment._id.day}`
+          : range === "yearly"
+          ? `${payment._id.year}`
+          : `${payment._id.year}-${payment._id.month}`;
+
+      const currentAmount = paymentMap.get(key) || 0;
+      paymentMap.set(key, currentAmount + payment.totalAmount);
+    }
+
+    // 5. Map'ni array'ga aylantirish
+    const payments = Array.from(paymentMap.entries())
+      .map(([key, totalAmount]) => {
+        if (range === "daily") {
+          const [year, month, day] = key.split("-").map(Number);
+          return { _id: { year, month, day }, totalAmount };
+        } else if (range === "yearly") {
+          return { _id: { year: Number(key) }, totalAmount };
+        } else {
+          const [year, month] = key.split("-").map(Number);
+          return { _id: { year, month }, totalAmount };
+        }
+      })
+      .sort((a, b) => {
+        if (range === "daily") {
+          return (
+            new Date(
+              a._id.year,
+              (a._id.month || 1) - 1,
+              a._id.day || 1
+            ).getTime() -
+            new Date(
+              b._id.year,
+              (b._id.month || 1) - 1,
+              b._id.day || 1
+            ).getTime()
+          );
+        } else if (range === "yearly") {
+          return a._id.year - b._id.year;
+        } else {
+          return (
+            new Date(a._id.year, (a._id.month || 1) - 1).getTime() -
+            new Date(b._id.year, (b._id.month || 1) - 1).getTime()
+          );
+        }
+      });
+
+    console.log(`Statistic for ${range}:`, {
+      startDate,
+      directPayments: directPayments.length,
+      debtorPayments: debtorPayments.length,
+      totalPayments: payments.length,
+      totalAmount: payments.reduce((sum, p) => sum + p.totalAmount, 0),
+      samplePayments: payments.slice(0, 3),
+    });
 
     // Data tayyorlash
     const resultMap = new Map<string, number>();
@@ -304,7 +380,7 @@ class DashboardService {
       }
 
       for (const item of payments) {
-        const label = monthNames[item._id.month - 1];
+        const label = monthNames[(item._id.month || 1) - 1];
         if (resultMap.has(label)) {
           resultMap.set(label, item.totalAmount);
         }

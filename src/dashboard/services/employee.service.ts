@@ -18,7 +18,7 @@ class EmployeeService {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw BaseError.BadRequest("Invalid ID format");
     }
-    return await Employee.findById(id).select("-password -__v");
+    return await Employee.findById(id).populate("role").select("-__v");
   }
 
   async getAll() {

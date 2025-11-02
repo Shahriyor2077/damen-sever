@@ -273,12 +273,75 @@ class DebtorService {
 
     for (const contract of contracts) {
       contract.isDeclare = true;
-      await Debtor.create({
+
+      // Debtor yaratishdan oldin mavjudligini tekshirish
+      const existingDebtor = await Debtor.findOne({
         contractId: contract._id,
-        debtAmount: contract.monthlyPayment,
-        createBy: user.sub,
+        "payment.isPaid": { $ne: true },
       });
+
+      if (!existingDebtor) {
+        await Debtor.create({
+          contractId: contract._id,
+          debtAmount: contract.monthlyPayment,
+          createBy: user.sub,
+          currencyDetails: {
+            dollar: 0,
+            sum: 0,
+          },
+          currencyCourse: 12500, // Default currency course
+        });
+      }
+
       await contract.save();
+    }
+
+    return { message: "Qarzdorlar e'lon qilindi." };
+  }
+
+  // Avtomatik debtor yaratish funksiyasi
+  async createOverdueDebtors() {
+    try {
+      const today = new Date();
+
+      // Muddati o'tgan shartnomalarni topish
+      const overdueContracts = await Contract.find({
+        isActive: true,
+        isDeleted: false,
+        isDeclare: false,
+        status: ContractStatus.ACTIVE,
+        nextPaymentDate: { $lte: today },
+      });
+
+      let createdCount = 0;
+
+      for (const contract of overdueContracts) {
+        // Ushbu shartnoma uchun to'lanmagan debtor mavjudligini tekshirish
+        const existingDebtor = await Debtor.findOne({
+          contractId: contract._id,
+          "payment.isPaid": { $ne: true },
+        });
+
+        if (!existingDebtor) {
+          await Debtor.create({
+            contractId: contract._id,
+            debtAmount: contract.monthlyPayment,
+            createBy: contract.createBy,
+            currencyDetails: {
+              dollar: 0,
+              sum: 0,
+            },
+            currencyCourse: 12500,
+          });
+          createdCount++;
+        }
+      }
+
+      console.log(`Created ${createdCount} new debtors for overdue contracts`);
+      return { created: createdCount };
+    } catch (error) {
+      console.error("Error creating overdue debtors:", error);
+      throw BaseError.InternalServerError("Qarzdorlar yaratishda xatolik");
     }
   }
 }

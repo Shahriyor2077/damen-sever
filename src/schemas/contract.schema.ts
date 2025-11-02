@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 import { BaseSchema, IBase } from "./base.schema";
 import { ICustomer } from "./customer.schema";
 import { IPayment } from "./payment.schema";
@@ -42,11 +42,10 @@ export interface IContract extends IBase {
   percentage?: number;
   notes: INotes;
   info: IContractInfo;
-  
-  
+
   isDeclare: boolean;
   status: ContractStatus;
-  payments: IPayment[];
+  payments: IPayment[] | string[];
 }
 
 const ContractSchema = new Schema<IContract>(

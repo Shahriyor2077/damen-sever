@@ -10,4 +10,10 @@ router.put(
   paymentController.update
 );
 
+router.get(
+  "/history",
+  checkPermission(Permission.VIEW_PAYMENT),
+  paymentController.getPaymentHistory
+);
+
 export default router;
