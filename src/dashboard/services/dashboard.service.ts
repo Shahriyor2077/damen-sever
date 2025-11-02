@@ -19,7 +19,8 @@ class DashboardService {
 
     // Valyuta kursini olish
     const currencyCourse = await Currency.findOne().sort({ createdAt: -1 });
-    const exchangeRate = currencyCourse?.amount || 12500; // Default: 1$ = 12500 so'm
+    const exchangeRate = currencyCourse?.amount;
+    const hasCurrencyRate = !!exchangeRate && exchangeRate > 0;
 
     const [totalBalance] = await Balance.aggregate([
       {
@@ -45,7 +46,9 @@ class DashboardService {
 
     // Balans (so'm) ni hisoblash: Balans ($) * dollar kursi
     const calculatedBalance = totalBalance || defaultBalance;
-    const balanceInSum = Math.round(calculatedBalance.dollar * exchangeRate);
+    const balanceInSum = hasCurrencyRate
+      ? Math.round(calculatedBalance.dollar * exchangeRate!)
+      : 0; // Agar kurs yo'q bo'lsa 0
 
     const [initialPaymentData] = await Contract.aggregate([
       {
@@ -95,7 +98,9 @@ class DashboardService {
         debtors: debtorCount,
         totalBalance: {
           dollar: calculatedBalance.dollar,
-          sum: balanceInSum, // Hisoblangan so'm miqdori
+          sum: balanceInSum, // 0 yoki hisoblangan so'm miqdori
+          hasCurrencyRate, // Kurs mavjudligini bildiradi
+          currencyRate: exchangeRate || null,
         },
         financial: {
           totalContractPrice,
