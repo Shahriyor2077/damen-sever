@@ -17,6 +17,38 @@ class CustomerController {
     }
   }
 
+  async getOne(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const data = await customerService.getOne(id);
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async update(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      const customerData = plainToInstance(
+        CreateCustomerDtoForSeller,
+        req.body || {}
+      );
+      const errors = await validate(customerData);
+      if (errors.length > 0) {
+        const formattedErrors = handleValidationErrors(errors);
+        return next(
+          BaseError.BadRequest("Mijoz ma'lumotlari xato.", formattedErrors)
+        );
+      }
+      const data = await customerService.update(id, customerData, req.files);
+      res.status(200).json(data);
+    } catch (error) {
+      console.log("error", error);
+      return next(error);
+    }
+  }
+
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const user = req.user;

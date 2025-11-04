@@ -8,7 +8,19 @@ import dayjs from "dayjs";
 import Currency from "../../schemas/currency.schema";
 
 class DashboardService {
+  private cache: any = null;
+  private cacheTime: number = 0;
+  private CACHE_DURATION = 30000; // 30 soniya
+
   async dashboard() {
+    // Cache tekshirish
+    const now = Date.now();
+    if (this.cache && now - this.cacheTime < this.CACHE_DURATION) {
+      console.log("📦 Returning cached dashboard data");
+      return this.cache;
+    }
+
+    console.log("🔄 Fetching fresh dashboard data");
     const [employeeCount, customerCount, contractCount, debtorCount] =
       await Promise.all([
         Employee.countDocuments(),
@@ -89,7 +101,7 @@ class DashboardService {
 
     const remainingDebt = totalContractPrice - paidAmount;
 
-    return {
+    const result = {
       status: "success",
       data: {
         employees: employeeCount,
@@ -110,6 +122,12 @@ class DashboardService {
         },
       },
     };
+
+    // Cache'ga saqlash
+    this.cache = result;
+    this.cacheTime = Date.now();
+
+    return result;
   }
 
   // async statistic() {

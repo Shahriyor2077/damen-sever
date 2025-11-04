@@ -15,6 +15,7 @@ import ErrorMiddleware from "./middlewares/error.middleware";
 const app = express();
 const BotHostUrl = process.env.BOT_HOST_URL;
 const dashbordHostUrl = process.env.DASHBOARD_HOST_URL;
+const botWebAppUrl = process.env.BOT_WEB_APP_URL;
 
 if (!dashbordHostUrl || !BotHostUrl) {
   throw new Error(
@@ -22,16 +23,22 @@ if (!dashbordHostUrl || !BotHostUrl) {
   );
 }
 
+const allowedOrigins = [
+  dashbordHostUrl,
+  BotHostUrl,
+  "https://www.damen.uz",
+  "http://localhost:5174",
+  "http://localhost:5173",
+];
+
+if (botWebAppUrl) {
+  allowedOrigins.push(botWebAppUrl);
+}
+
 app.use(
   cors({
     credentials: true,
-    origin: [
-      dashbordHostUrl,
-      BotHostUrl,
-      "https://www.damen.uz",
-      "http://localhost:5174",
-      "http://localhost:5173",
-    ],
+    origin: allowedOrigins,
   })
 );
 

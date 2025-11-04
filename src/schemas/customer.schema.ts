@@ -51,8 +51,17 @@ const CustomerSchema = new Schema<ICustomer>(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// Virtual field for contracts
+CustomerSchema.virtual("contracts", {
+  ref: "Contract",
+  localField: "_id",
+  foreignField: "customer",
+});
 
 const Customer = model<ICustomer>("Customer", CustomerSchema);
 
