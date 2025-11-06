@@ -16,4 +16,23 @@ router.put(
   cashController.confirmations
 );
 
+// Yangi route'lar
+router.get(
+  "/pending",
+  // checkPermission(Permission.VIEW_CASH),
+  cashController.getPendingPayments
+);
+
+router.post(
+  "/confirm-payments",
+  // checkPermission(Permission.UPDATE_CASH),
+  cashController.confirmPayments
+);
+
+router.post(
+  "/reject-payment",
+  // checkPermission(Permission.UPDATE_CASH),
+  cashController.rejectPayment
+);
+
 export default router;

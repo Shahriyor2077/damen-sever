@@ -78,20 +78,40 @@ class ExpensesSrvice {
   }
 
   async return(id: string) {
-    const existingExpenses = await Expenses.findById(id);
+    const existingExpenses = await Expenses.findById(id).populate("managerId");
 
     if (!existingExpenses) {
-      throw BaseError.NotFoundError("Qarizdorlik topilmadi yoki o'chirilgan");
+      throw BaseError.NotFoundError("Xarajat topilmadi yoki o'chirilgan");
     }
 
+    if (!existingExpenses.isActive) {
+      throw BaseError.BadRequest("Xarajat allaqachon qaytarilgan");
+    }
 
+    // Balance'ga qaytarish (xarajat bekor qilinganda)
+    const balance = await Balance.findOne({
+      managerId: existingExpenses.managerId,
+    });
+
+    if (balance) {
+      balance.dollar += existingExpenses.dollar || 0;
+      balance.sum += existingExpenses.sum || 0;
+      await balance.save();
+      console.log(
+        "✅ Balance restored after expense return:",
+        balance._id,
+        "+",
+        existingExpenses.dollar,
+        "$"
+      );
+    }
 
     existingExpenses.isActive = false;
     await existingExpenses.save();
 
     return {
       status: "success",
-      message: "Xarajat muvaffaqiyatli yangilandi.",
+      message: "Xarajat muvaffaqiyatli qaytarildi va balans tiklandi.",
     };
   }
 }

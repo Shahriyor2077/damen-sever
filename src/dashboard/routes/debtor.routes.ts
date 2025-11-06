@@ -23,6 +23,12 @@ router.post(
   debtorController.declareDebtors
 );
 
+router.post(
+  "/pay",
+  checkPermission(Permission.UPDATE_DEBTOR),
+  debtorController.payDebt
+);
+
 // router.post(
 //   "/notify-debtors",
 //   checkPermission(Permission.UPDATE_DEBTOR),

@@ -72,5 +72,63 @@ class PaymentController {
       return next(error);
     }
   }
+
+  // Yangi endpoint'lar - Payment Service uchun
+
+  async receivePayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { ReceivePaymentDto } = await import("../../validators/payment");
+      const payData = plainToInstance(ReceivePaymentDto, req.body || {});
+      const errors = await validate(payData);
+
+      if (errors.length > 0) {
+        const formattedErrors = handleValidationErrors(errors);
+        return next(
+          BaseError.BadRequest("To'lov ma'lumotlari xato.", formattedErrors)
+        );
+      }
+
+      const data = await paymentService.receivePayment(payData, user);
+      res.status(201).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async confirmPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { paymentId } = req.body;
+
+      if (!paymentId) {
+        return next(BaseError.BadRequest("Payment ID bo'sh bo'lmasligi kerak"));
+      }
+
+      const data = await paymentService.confirmPayment(paymentId, user);
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async rejectPayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { paymentId, reason } = req.body;
+
+      if (!paymentId || !reason) {
+        return next(
+          BaseError.BadRequest("Payment ID va sabab bo'sh bo'lmasligi kerak")
+        );
+      }
+
+      const data = await paymentService.rejectPayment(paymentId, reason, user);
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
+
 export default new PaymentController();

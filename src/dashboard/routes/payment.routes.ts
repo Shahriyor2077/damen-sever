@@ -22,4 +22,23 @@ router.get(
   paymentController.getPaymentHistory
 );
 
+// Yangi route'lar - Payment Service uchun
+router.post(
+  "/receive",
+  checkPermission(Permission.UPDATE_CASH),
+  paymentController.receivePayment
+);
+
+router.post(
+  "/confirm",
+  checkPermission(Permission.UPDATE_CASH),
+  paymentController.confirmPayment
+);
+
+router.post(
+  "/reject",
+  checkPermission(Permission.UPDATE_CASH),
+  paymentController.rejectPayment
+);
+
 export default router;

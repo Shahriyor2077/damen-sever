@@ -12,6 +12,14 @@ import uploadsCsv from "./updatesData/routes/index";
 //middleware
 import ErrorMiddleware from "./middlewares/error.middleware";
 
+// Monitoring
+import {
+  healthCheck,
+  livenessProbe,
+  readinessProbe,
+} from "./monitoring/health-check";
+import { getMetrics, metricsMiddleware } from "./monitoring/metrics";
+
 const app = express();
 const BotHostUrl = process.env.BOT_HOST_URL;
 const dashbordHostUrl = process.env.DASHBOARD_HOST_URL;
@@ -45,7 +53,18 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Metrics middleware
+app.use(metricsMiddleware);
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// Health check endpoints
+app.get("/health", healthCheck);
+app.get("/health/live", livenessProbe);
+app.get("/health/ready", readinessProbe);
+
+// Metrics endpoint
+app.get("/api/metrics", getMetrics);
 
 app.use("/upl", uploadsCsv);
 app.use("/api", routes);

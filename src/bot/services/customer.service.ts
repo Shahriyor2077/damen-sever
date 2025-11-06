@@ -167,24 +167,16 @@ class CustomerService {
             totalDebt: {
               $sum: "$contracts.totalPrice",
             },
-            totalInitialPayments: {
-              $sum: "$contracts.initialPayment",
-            },
-            totalPaidPayments: {
+            // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
+            totalPaid: {
               $sum: "$payments.amount",
             },
           },
         },
         {
           $addFields: {
-            totalPaid: {
-              $add: ["$totalInitialPayments", "$totalPaidPayments"],
-            },
             remainingDebt: {
-              $subtract: [
-                "$totalDebt",
-                { $add: ["$totalInitialPayments", "$totalPaidPayments"] },
-              ],
+              $subtract: ["$totalDebt", "$totalPaid"],
             },
           },
         },
@@ -227,41 +219,29 @@ class CustomerService {
       {
         $lookup: {
           from: "payments",
-          let: { contractId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$isPaid", true] },
-                    { $eq: ["$contractId", "$$contractId"] },
-                  ],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                totalPaidAmount: { $sum: "$amount" },
-              },
-            },
-          ],
-          as: "paidInfo",
+          localField: "payments",
+          foreignField: "_id",
+          as: "paymentDetails",
         },
       },
       {
         $addFields: {
           totalDebt: "$totalPrice",
+          // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
           totalPaid: {
-            $add: [
-              "$initialPayment",
-              {
-                $ifNull: [
-                  { $arrayElemAt: ["$paidInfo.totalPaidAmount", 0] },
-                  0,
-                ],
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$paymentDetails",
+                    as: "p",
+                    cond: { $eq: ["$$p.isPaid", true] },
+                  },
+                },
+                as: "pp",
+                in: "$$pp.amount",
               },
-            ],
+            },
           },
         },
       },
@@ -281,6 +261,7 @@ class CustomerService {
         },
       },
     ]);
+
     const debtorContractsRaw = await Debtor.aggregate([
       {
         $lookup: {
@@ -298,28 +279,48 @@ class CustomerService {
         },
       },
       {
+        $lookup: {
+          from: "payments",
+          localField: "contract.payments",
+          foreignField: "_id",
+          as: "paymentDetails",
+        },
+      },
+      {
         $addFields: {
           debtorId: "$_id",
           isPaid: {
             $eq: [{ $ifNull: ["$payment.isPaid", false] }, true],
           },
           totalDebt: "$contract.totalPrice",
+          // ✅ TO'G'RI: payments array'da allaqachon initialPayment bor
+          // Debtor'dagi payment faqat joriy oylik to'lov
           totalPaid: {
             $add: [
-              "$contract.initialPayment",
+              {
+                $sum: {
+                  $map: {
+                    input: {
+                      $filter: {
+                        input: "$paymentDetails",
+                        as: "p",
+                        cond: { $eq: ["$$p.isPaid", true] },
+                      },
+                    },
+                    as: "pp",
+                    in: "$$pp.amount",
+                  },
+                },
+              },
               { $ifNull: ["$payment.amount", 0] },
             ],
           },
+        },
+      },
+      {
+        $addFields: {
           remainingDebt: {
-            $subtract: [
-              "$contract.totalPrice",
-              {
-                $add: [
-                  "$contract.initialPayment",
-                  { $ifNull: ["$payment.amount", 0] },
-                ],
-              },
-            ],
+            $subtract: ["$totalDebt", "$totalPaid"],
           },
         },
       },

@@ -37,6 +37,40 @@ class DebtorController {
       return next(error);
     }
   }
+
+  async payDebt(req: Request, res: Response, next: NextFunction) {
+    try {
+      const user = req.user;
+      const { debtorId, amount, date, notes, method } = req.body;
+
+      if (!debtorId || !amount) {
+        return res.status(400).json({
+          message: "Debtor ID va to'lov summasi majburiy",
+        });
+      }
+
+      // ❌ payDebt metodi o'chirildi, paymentService.update() ishlatiladi
+      const paymentService = (await import("../services/payment.service"))
+        .default;
+      const data = await paymentService.update(
+        {
+          id: debtorId,
+          amount: Number(amount),
+          notes: notes || "",
+          currencyDetails: {
+            dollar: Number(amount),
+            sum: 0,
+          },
+          currencyCourse: 12500,
+        },
+        user
+      );
+
+      res.status(200).json(data);
+    } catch (error) {
+      return next(error);
+    }
+  }
 }
 
 export default new DebtorController();

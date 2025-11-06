@@ -10,6 +10,7 @@ import cashRoute from "./cash.routes";
 import paymentRoute from "./payment.routes";
 import expenseRoute from "./expenses.routes";
 import fileRoute from "./file.routes";
+import excelImportRoute from "./excel-import.routes";
 
 const routes = Router();
 
@@ -23,5 +24,6 @@ routes.use("/cash", cashRoute);
 routes.use("/payment", paymentRoute);
 routes.use("/expense", expenseRoute);
 routes.use("/file", fileRoute);
+routes.use("/excel", excelImportRoute);
 
 export default routes;

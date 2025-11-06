@@ -53,4 +53,10 @@ router.post(
   contractController.approveContract
 );
 
+router.post(
+  "/analyze-impact/:id",
+  checkPermission(Permission.UPDATE_CONTRACT),
+  contractController.analyzeImpact
+);
+
 export default router;

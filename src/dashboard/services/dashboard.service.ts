@@ -261,30 +261,11 @@ class DashboardService {
       },
     ]);
 
-    // 2. Debtor collection'dan to'lovlarni olish
-    const debtorPayments = await Debtor.aggregate([
-      {
-        $match: {
-          "payment.isPaid": true,
-          "payment.date": { $gte: startDate },
-          payment: { $exists: true },
-        },
-      },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$payment.date" },
-            month: { $month: "$payment.date" },
-            day:
-              range === "daily" ? { $dayOfMonth: "$payment.date" } : undefined,
-          },
-          totalAmount: { $sum: "$payment.amount" },
-        },
-      },
-    ]);
+    // 2. ❌ Debtor collection'dan to'lovlarni olish kerak emas
+    // Barcha to'lovlar allaqachon Payment collection'da
 
-    // 3. Barcha to'lovlarni birlashtirish
-    const allPayments = [...directPayments, ...debtorPayments];
+    // 3. Barcha to'lovlar faqat Payment collection'dan
+    const allPayments = [...directPayments];
 
     // 4. Bir xil sana bo'yicha to'lovlarni jamlash
     const paymentMap = new Map<string, number>();
@@ -341,7 +322,6 @@ class DashboardService {
     console.log(`Statistic for ${range}:`, {
       startDate,
       directPayments: directPayments.length,
-      debtorPayments: debtorPayments.length,
       totalPayments: payments.length,
       totalAmount: payments.reduce((sum, p) => sum + p.totalAmount, 0),
       samplePayments: payments.slice(0, 3),

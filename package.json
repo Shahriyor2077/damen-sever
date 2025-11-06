@@ -8,7 +8,14 @@
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "render-build": "npm install && npm run build",
-    "render-start": "node --max-old-space-size=256 dist/server.js"
+    "render-start": "node --max-old-space-size=256 dist/server.js",
+    "migrate:up": "ts-node src/migrations/run-migration.ts up",
+    "migrate:down": "ts-node src/migrations/run-migration.ts down",
+    "deploy:staging": "bash scripts/deploy-staging.sh",
+    "deploy:production": "bash scripts/deploy-production.sh",
+    "rollback:production": "bash scripts/rollback-production.sh",
+    "monitor:production": "bash scripts/monitor-production.sh",
+    "test:data": "node scripts/generate-test-data.js"
   },
   "keywords": [],
   "author": "",
@@ -31,7 +38,8 @@
     "multer": "^2.0.1",
     "nodemon": "^3.1.9",
     "reflect-metadata": "^0.2.2",
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

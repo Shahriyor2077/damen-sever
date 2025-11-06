@@ -49,3 +49,49 @@ export class PayNewDebtDto extends PayDto {
   @IsNotEmpty({ message: "Contract ID bo'sh bo'lmasligi kerak" })
   id: string;
 }
+
+// Yangi validator'lar - Payment Service uchun
+
+export class ReceivePaymentDto {
+  @IsMongoId({ message: "Contract ID noto'g'ri" })
+  @IsNotEmpty({ message: "Contract ID bo'sh bo'lmasligi kerak" })
+  contractId: string;
+
+  @IsNumber({}, { message: "To'lov miqdori raqam bo'lishi kerak" })
+  @Min(0.01, { message: "To'lov miqdori musbat bo'lishi kerak" })
+  amount: number;
+
+  @IsString({ message: "Izoh matn bo'lishi kerak" })
+  @IsOptional()
+  notes?: string;
+
+  @ValidateNested()
+  @Type(() => CurrencyDetailsDto)
+  currencyDetails: CurrencyDetailsDto;
+
+  @IsNumber({}, { message: "Dollar kurs raqam bo'lishi kerak" })
+  @Min(0, { message: "Dollar kurs manfiy bo'lmasligi kerak" })
+  currencyCourse: number;
+}
+
+export class ConfirmPaymentDto {
+  @IsMongoId({ message: "Payment ID noto'g'ri" })
+  @IsNotEmpty({ message: "Payment ID bo'sh bo'lmasligi kerak" })
+  paymentId: string;
+}
+
+export class RejectPaymentDto {
+  @IsMongoId({ message: "Payment ID noto'g'ri" })
+  @IsNotEmpty({ message: "Payment ID bo'sh bo'lmasligi kerak" })
+  paymentId: string;
+
+  @IsString({ message: "Rad etish sababi matn bo'lishi kerak" })
+  @IsNotEmpty({ message: "Rad etish sababi bo'sh bo'lmasligi kerak" })
+  reason: string;
+}
+
+export class ConfirmPaymentsDto {
+  @IsMongoId({ each: true, message: "Payment ID'lar noto'g'ri" })
+  @IsNotEmpty({ message: "Payment ID'lar bo'sh bo'lmasligi kerak" })
+  paymentIds: string[];
+}

@@ -3,10 +3,93 @@ import Customer from "../../schemas/customer.schema";
 import BaseError from "../../utils/base.error";
 import { CreateContractDtoForSeller } from "../validators/contract";
 import { Balance } from "../../schemas/balance.schema";
+import { Debtor } from "../../schemas/debtor.schema";
 import Employee from "../../schemas/employee.schema";
+import Payment, { PaymentStatus } from "../../schemas/payment.schema";
 import { Types } from "mongoose";
 
 class ContractService {
+  // To'lovlarni qayta hisoblash funksiyasi
+  async recalculatePayments(
+    contractId: string,
+    newMonthlyPayment: number,
+    newInitialPayment?: number
+  ) {
+    try {
+      console.log("🔄 Recalculating payments for contract:", contractId);
+
+      const contract = await Contract.findById(contractId).populate("payments");
+      if (!contract || !contract.payments) {
+        return;
+      }
+
+      const payments = (contract.payments as any[]).sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      // Birinchi to'lov (initial payment) ni yangilash
+      if (newInitialPayment && payments[0]) {
+        const firstPayment = await Payment.findById(payments[0]._id);
+        if (firstPayment) {
+          firstPayment.amount = newInitialPayment;
+          firstPayment.expectedAmount = newInitialPayment;
+          firstPayment.status = PaymentStatus.PAID;
+          await firstPayment.save();
+          console.log("✅ Initial payment updated:", newInitialPayment);
+        }
+      }
+
+      // Oylik to'lovlarni tekshirish va yangilash
+      for (let i = 1; i < payments.length; i++) {
+        const payment = await Payment.findById(payments[i]._id);
+        if (!payment) continue;
+
+        payment.expectedAmount = newMonthlyPayment;
+
+        if (payment.isPaid) {
+          // To'langan to'lovni tekshirish
+          const diff = payment.amount - newMonthlyPayment;
+
+          if (Math.abs(diff) < 0.01) {
+            // To'g'ri to'langan
+            payment.status = PaymentStatus.PAID;
+            payment.remainingAmount = 0;
+            payment.excessAmount = 0;
+          } else if (diff < 0) {
+            // Kam to'langan
+            payment.status = PaymentStatus.UNDERPAID;
+            payment.remainingAmount = Math.abs(diff);
+            payment.excessAmount = 0;
+            console.log(
+              `⚠️ Payment ${i} underpaid: ${payment.amount} < ${newMonthlyPayment}, remaining: ${payment.remainingAmount}`
+            );
+          } else {
+            // Ko'p to'langan
+            payment.status = PaymentStatus.OVERPAID;
+            payment.excessAmount = diff;
+            payment.remainingAmount = 0;
+            console.log(
+              `ℹ️ Payment ${i} overpaid: ${payment.amount} > ${newMonthlyPayment}, excess: ${payment.excessAmount}`
+            );
+          }
+        } else {
+          // To'lanmagan - yangi oylik bilan yangilash
+          payment.amount = newMonthlyPayment;
+          payment.status = PaymentStatus.PENDING;
+          payment.remainingAmount = 0;
+          payment.excessAmount = 0;
+        }
+
+        await payment.save();
+      }
+
+      console.log("✅ Payments recalculated successfully");
+    } catch (error) {
+      console.error("❌ Error recalculating payments:", error);
+      throw error;
+    }
+  }
+
   // Balansni yangilash funksiyasi
   async updateBalance(
     managerId: any,
@@ -388,55 +471,160 @@ class ContractService {
     return contract[0];
   }
 
-  // Shartnomani tahrirlash
+  // Shartnomani tahrirlash (CASCADE UPDATE)
   async updateContract(contractId: string, data: any, userId: string) {
-    const contract = await Contract.findOne({
-      _id: contractId,
-      isDeleted: false,
-    }).populate("notes");
+    try {
+      console.log("🔄 === CONTRACT UPDATE STARTED ===");
+      console.log("📋 Contract ID:", contractId);
 
-    if (!contract) {
-      throw BaseError.NotFoundError("Shartnoma topilmadi");
-    }
+      const contract = await Contract.findOne({
+        _id: contractId,
+        isDeleted: false,
+      })
+        .populate("notes")
+        .populate("payments");
 
-    // Notes yangilash
-    if (data.notes && contract.notes) {
-      contract.notes.text = data.notes;
-      await contract.notes.save();
-    }
+      if (!contract) {
+        throw BaseError.NotFoundError("Shartnoma topilmadi");
+      }
 
-    // Shartnoma ma'lumotlarini yangilash
-    const updatedContract = await Contract.findOneAndUpdate(
-      { _id: contractId, isDeleted: false },
-      {
-        productName: data.productName,
-        originalPrice: data.originalPrice,
-        price: data.price,
+      console.log("📊 Old values:", {
+        initialPayment: contract.initialPayment,
+        totalPrice: contract.totalPrice,
+        monthlyPayment: contract.monthlyPayment,
+      });
+
+      console.log("📊 New values:", {
         initialPayment: data.initialPayment,
-        percentage: data.percentage,
-        period: data.period,
-        monthlyPayment: data.monthlyPayment,
         totalPrice: data.totalPrice,
-        initialPaymentDueDate: data.initialPaymentDueDate,
-        nextPaymentDate: data.initialPaymentDueDate,
-        info: {
-          box: data.box || false,
-          mbox: data.mbox || false,
-          receipt: data.receipt || false,
-          iCloud: data.iCloud || false,
+        monthlyPayment: data.monthlyPayment,
+      });
+
+      // 1. Initial Payment o'zgarganini tekshirish
+      const oldInitialPayment = contract.initialPayment || 0;
+      const newInitialPayment = data.initialPayment || 0;
+      const initialPaymentDiff = newInitialPayment - oldInitialPayment;
+
+      console.log("💰 Initial payment difference:", initialPaymentDiff);
+
+      // 2. Agar initial payment o'zgargan bo'lsa, Payment collection'ni yangilash
+      if (
+        initialPaymentDiff !== 0 &&
+        contract.payments &&
+        contract.payments.length > 0
+      ) {
+        const Payment = await import("../../schemas/payment.schema");
+
+        // Birinchi to'lovni topish (initial payment)
+        const firstPayment = await Payment.default.findById(
+          contract.payments[0]
+        );
+
+        if (firstPayment) {
+          const oldAmount = firstPayment.amount;
+          firstPayment.amount = newInitialPayment;
+          await firstPayment.save();
+
+          console.log(
+            `✅ Initial payment updated: ${oldAmount} -> ${newInitialPayment}`
+          );
+
+          // 3. Balance'ni yangilash
+          const customer = await Customer.findById(contract.customer).populate(
+            "manager"
+          );
+          if (customer && customer.manager) {
+            await this.updateBalance(customer.manager._id, {
+              dollar: initialPaymentDiff,
+              sum: 0,
+            });
+            console.log(
+              `💵 Balance updated for manager: ${customer.manager._id}, diff: ${initialPaymentDiff}`
+            );
+          }
+        }
+      }
+
+      // 4. Monthly payment o'zgarganini tekshirish va Debtor'ni yangilash
+      const oldMonthlyPayment = contract.monthlyPayment || 0;
+      const newMonthlyPayment = data.monthlyPayment || 0;
+
+      if (oldMonthlyPayment !== newMonthlyPayment) {
+        console.log(
+          `📅 Monthly payment changed: ${oldMonthlyPayment} -> ${newMonthlyPayment}`
+        );
+
+        // Debtor'ni yangilash
+        await Debtor.updateMany(
+          { contractId: contract._id },
+          { debtAmount: newMonthlyPayment }
+        );
+        console.log("⚠️ Debtors updated with new monthly payment");
+
+        // To'lovlarni qayta hisoblash
+        await this.recalculatePayments(
+          String(contract._id),
+          newMonthlyPayment,
+          initialPaymentDiff !== 0 ? newInitialPayment : undefined
+        );
+      } else if (initialPaymentDiff !== 0) {
+        // Faqat initial payment o'zgargan bo'lsa
+        await this.recalculatePayments(
+          String(contract._id),
+          newMonthlyPayment,
+          newInitialPayment
+        );
+      }
+
+      // 5. Notes yangilash
+      if (data.notes && contract.notes) {
+        contract.notes.text = data.notes;
+        await contract.notes.save();
+      }
+
+      // 6. Shartnoma ma'lumotlarini yangilash
+      const updatedContract = await Contract.findOneAndUpdate(
+        { _id: contractId, isDeleted: false },
+        {
+          productName: data.productName,
+          originalPrice: data.originalPrice,
+          price: data.price,
+          initialPayment: data.initialPayment,
+          percentage: data.percentage,
+          period: data.period,
+          monthlyPayment: data.monthlyPayment,
+          totalPrice: data.totalPrice,
+          initialPaymentDueDate: data.initialPaymentDueDate,
+          nextPaymentDate: data.initialPaymentDueDate,
+          info: {
+            box: data.box || false,
+            mbox: data.mbox || false,
+            receipt: data.receipt || false,
+            iCloud: data.iCloud || false,
+          },
         },
-      },
-      { new: true }
-    );
+        { new: true }
+      );
 
-    if (!updatedContract) {
-      throw BaseError.NotFoundError("Shartnoma yangilanmadi");
+      if (!updatedContract) {
+        throw BaseError.NotFoundError("Shartnoma yangilanmadi");
+      }
+
+      console.log("🎉 === CONTRACT UPDATE COMPLETED ===");
+
+      return {
+        message: "Shartnoma va bog'liq ma'lumotlar muvaffaqiyatli yangilandi",
+        contract: updatedContract,
+        changes: {
+          initialPaymentDiff,
+          monthlyPaymentChanged: oldMonthlyPayment !== newMonthlyPayment,
+        },
+      };
+    } catch (error) {
+      console.error("❌ === CONTRACT UPDATE FAILED ===");
+      console.error("Error:", error);
+      throw error;
     }
-
-    return {
-      message: "Shartnoma muvaffaqiyatli yangilandi",
-      contract: updatedContract,
-    };
   }
 
   async create(data: CreateContractDtoForSeller, userId?: string) {

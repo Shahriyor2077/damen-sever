@@ -58,22 +58,40 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    const payment: IPayment = {
+    // ❌ ESKI LOGIKA - Debtor'da embedded payment saqlanmaydi
+    // Yangi logika: Payment collection'ga to'g'ridan-to'g'ri yozish
+    const Payment = (await import("../../schemas/payment.schema")).default;
+    const { PaymentType, PaymentStatus } = await import(
+      "../../schemas/payment.schema"
+    );
+
+    const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
       isPaid: true,
-      notes,
+      paymentType: PaymentType.MONTHLY,
+      notes: notes._id,
       customerId: customer,
-      managerId: manager,
-    };
+      managerId: manager._id,
+      status: PaymentStatus.PAID,
+      confirmedAt: new Date(),
+      confirmedBy: manager._id,
+    });
 
-    existingDebtor.payment = payment;
-    existingDebtor.currencyDetails = {
+    // Contract.payments ga qo'shish
+    const Contract = (await import("../../schemas/contract.schema")).default;
+    await Contract.findByIdAndUpdate(existingDebtor.contractId._id, {
+      $push: { payments: paymentDoc._id },
+    });
+
+    // Balance yangilash
+    await this.updateBalance(manager, {
       dollar: payData.currencyDetails?.dollar || 0,
       sum: payData.currencyDetails?.sum || 0,
-    };
-    existingDebtor.currencyCourse = payData.currencyCourse;
-    await existingDebtor.save();
+    });
+
+    // Debtor'ni o'chirish
+    await existingDebtor.deleteOne();
     return {
       status: "success",
       message: "To'lov amalga oshirildi",
@@ -104,27 +122,31 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    const payment: IPayment = {
+    // ❌ ESKI LOGIKA - Debtor yaratilmaydi, to'g'ridan-to'g'ri Payment yaratiladi
+    const Payment = (await import("../../schemas/payment.schema")).default;
+    const { PaymentType, PaymentStatus } = await import(
+      "../../schemas/payment.schema"
+    );
+
+    const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
       isPaid: true,
-      notes,
+      paymentType: PaymentType.MONTHLY,
+      notes: notes._id,
       customerId: customer,
-      managerId: manager,
-    };
-
-    const newDebtor = new Debtor({
-      contractId: existingContract._id,
-      debtAmount: existingContract.monthlyPayment,
-      createBy: manager,
-      payment,
-      currencyDetails: {
-        dollar: payData.currencyDetails?.dollar || 0,
-        sum: payData.currencyDetails?.sum || 0,
-      },
-      currencyCourse: payData.currencyCourse,
+      managerId: manager._id,
+      status: PaymentStatus.PAID,
+      confirmedAt: new Date(),
+      confirmedBy: manager._id,
     });
-    await newDebtor.save();
+
+    // Contract.payments ga qo'shish
+    if (!existingContract.payments) {
+      existingContract.payments = [];
+    }
+    (existingContract.payments as string[]).push(paymentDoc._id.toString());
+    await existingContract.save();
     return {
       status: "success",
       message: "To'lov amalga oshirildi",

@@ -3,36 +3,107 @@ import { INotes } from "./notes.schema";
 import { ICustomer } from "./customer.schema";
 import { IEmployee } from "./employee.schema";
 
+export enum PaymentStatus {
+  PAID = "PAID",
+  UNDERPAID = "UNDERPAID",
+  OVERPAID = "OVERPAID",
+  PENDING = "PENDING",
+  REJECTED = "REJECTED", // YANGI - rad etilgan to'lov
+}
+
+export enum PaymentType {
+  INITIAL = "initial", // Boshlang'ich to'lov
+  MONTHLY = "monthly", // Oylik to'lov
+  EXTRA = "extra", // Qo'shimcha to'lov
+}
+
+export enum PaymentReason {
+  MONTHLY_PAYMENT_INCREASE = "monthly_payment_increase",
+  MONTHLY_PAYMENT_DECREASE = "monthly_payment_decrease",
+  INITIAL_PAYMENT_CHANGE = "initial_payment_change",
+  TOTAL_PRICE_CHANGE = "total_price_change",
+}
+
 export interface IPayment {
   amount: number;
   date: Date;
   isPaid: boolean;
+  paymentType: PaymentType; // YANGI - to'lov turi
   notes: INotes;
   customerId: ICustomer;
   managerId: IEmployee;
+  status?: PaymentStatus;
+  remainingAmount?: number; // Kam to'langan bo'lsa
+  excessAmount?: number; // Ko'p to'langan bo'lsa
+  expectedAmount?: number; // Kutilgan summa (oylik to'lov)
+  confirmedAt?: Date; // YANGI - kassa tasdiqlagan vaqt
+  confirmedBy?: IEmployee; // YANGI - kassa xodimi
+  linkedPaymentId?: IPayment | string; // Bog'langan to'lov (qo'shimcha to'lov uchun)
+  reason?: PaymentReason; // Sabab: 'monthly_payment_increase', 'initial_payment_change'
+  prepaidAmount?: number; // Oldindan to'langan summa (keyingi oydan)
+  appliedToPaymentId?: IPayment | string; // Qaysi to'lovga qo'llanildi (ortiqcha summa uchun)
 }
 
-const PaymentSchema = new Schema<IPayment>({
-  amount: { type: Number, required: true },
-  date: { type: Date, required: true },
-
-  isPaid: { type: Boolean, required: true, default: false },
-  notes: {
-    type: Schema.Types.ObjectId,
-    ref: "Notes",
-    required: true,
+const PaymentSchema = new Schema<IPayment>(
+  {
+    amount: { type: Number, required: true },
+    date: { type: Date, required: true },
+    isPaid: { type: Boolean, required: true, default: false },
+    paymentType: {
+      type: String,
+      enum: Object.values(PaymentType),
+      required: true,
+      default: PaymentType.MONTHLY,
+    },
+    notes: {
+      type: Schema.Types.ObjectId,
+      ref: "Notes",
+      required: true,
+    },
+    customerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Customer",
+      required: true,
+    },
+    managerId: {
+      type: Schema.Types.ObjectId,
+      ref: "Employee",
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(PaymentStatus),
+      default: PaymentStatus.PENDING,
+    },
+    remainingAmount: { type: Number, default: 0 },
+    excessAmount: { type: Number, default: 0 },
+    expectedAmount: { type: Number },
+    confirmedAt: { type: Date },
+    confirmedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "Employee",
+    },
+    linkedPaymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment",
+      required: false,
+    },
+    reason: {
+      type: String,
+      enum: Object.values(PaymentReason),
+      required: false,
+    },
+    prepaidAmount: { type: Number, default: 0 },
+    appliedToPaymentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Payment",
+      required: false,
+    },
   },
-  customerId: {
-    type: Schema.Types.ObjectId,
-    ref: "Customer",
-    required: true,
-  },
-  managerId: {
-    type: Schema.Types.ObjectId,
-    ref: "Employee",
-    required: true,
-  },
-});
+  {
+    timestamps: true,
+  }
+);
 
 const Payment = model<IPayment>("Payment", PaymentSchema);
 

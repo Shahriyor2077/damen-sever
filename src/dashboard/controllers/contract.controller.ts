@@ -77,21 +77,90 @@ class ContractController {
     }
   }
 
+  /**
+   * Shartnomani yangilash
+   * Requirements: 10.1, 10.2, 10.3, 10.4
+   *
+   * Bu metod shartnoma ma'lumotlarini yangilaydi va barcha ta'sirlarni qaytaradi:
+   * - Request body validatsiya
+   * - Service chaqirish
+   * - Success response formatlash
+   * - Error handling va logging
+   */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = req.user;
+      console.log("🔄 === CONTRACT CONTROLLER UPDATE CALLED ===");
+      console.log("📦 Request body:", JSON.stringify(req.body, null, 2));
+      console.log("👤 User:", req.user?.sub);
 
-      const contractData = plainToInstance(UpdateContractDto, req.body || {});
-      const errors = await validate(contractData);
-      if (errors.length > 0) {
-        const formattedErrors = handleValidationErrors(errors);
+      // 1. User ma'lumotlarini olish
+      const user = req.user;
+      if (!user) {
+        console.log("❌ User not authenticated");
         return next(
-          BaseError.BadRequest("Shartnoma malumotlari xato.", formattedErrors)
+          BaseError.UnauthorizedError(
+            "Foydalanuvchi autentifikatsiya qilinmagan"
+          )
         );
       }
-      const data = await contractService.update(contractData, user);
-      res.status(200).json(data);
+
+      // 2. Request body validatsiya (Requirement 10.1)
+      console.log("🔍 Validating request body...");
+      const contractData = plainToInstance(UpdateContractDto, req.body || {});
+      const errors = await validate(contractData);
+
+      if (errors.length > 0) {
+        console.log("❌ Validation errors:", errors);
+        const formattedErrors = handleValidationErrors(errors);
+        return next(
+          BaseError.BadRequest("Shartnoma ma'lumotlari xato.", formattedErrors)
+        );
+      }
+      console.log("✅ Validation passed");
+
+      // 3. Service chaqirish (Requirement 10.2)
+      console.log("📞 Calling contractService.update()...");
+      const result = await contractService.update(contractData, user);
+      console.log("✅ Service call successful");
+
+      // 4. Success response formatlash (Requirement 10.3)
+      console.log("📤 Formatting response...");
+      const response = {
+        success: true,
+        message: result.message,
+        data: {
+          changes: result.changes,
+          impactSummary: {
+            underpaidCount: result.impactSummary.underpaidCount,
+            overpaidCount: result.impactSummary.overpaidCount,
+            totalShortage: result.impactSummary.totalShortage,
+            totalExcess: result.impactSummary.totalExcess,
+            additionalPaymentsCreated:
+              result.impactSummary.additionalPaymentsCreated,
+          },
+          affectedPaymentsCount: result.affectedPayments,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log("🎉 === CONTRACT CONTROLLER UPDATE COMPLETED ===");
+      console.log("📊 Response summary:", {
+        changesCount: result.changes.length,
+        affectedPayments: result.affectedPayments,
+        underpaidCount: result.impactSummary.underpaidCount,
+        overpaidCount: result.impactSummary.overpaidCount,
+      });
+
+      res.status(200).json(response);
     } catch (error) {
+      // 5. Error handling va logging (Requirement 10.4)
+      console.error("❌ === CONTRACT CONTROLLER UPDATE FAILED ===");
+      console.error("Error details:", {
+        name: error instanceof Error ? error.name : "Unknown",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
       return next(error);
     }
   }
@@ -123,6 +192,54 @@ class ContractController {
       const data = await contractService.approveContract(id, user);
       res.status(200).json(data);
     } catch (error) {
+      return next(error);
+    }
+  }
+
+  /**
+   * Ta'sir tahlili - shartnoma tahrirlashdan oldin
+   * Requirements: 1.2, 1.3, 1.4, 1.5
+   */
+  async analyzeImpact(req: Request, res: Response, next: NextFunction) {
+    try {
+      console.log("🔍 === ANALYZE IMPACT CALLED ===");
+      const { id } = req.params;
+      const { monthlyPayment, initialPayment, totalPrice } = req.body;
+
+      console.log("📋 Contract ID:", id);
+      console.log("📊 New values:", {
+        monthlyPayment,
+        initialPayment,
+        totalPrice,
+      });
+
+      // Validatsiya
+      if (!monthlyPayment || monthlyPayment < 0) {
+        throw BaseError.BadRequest("Oylik to'lov noto'g'ri");
+      }
+
+      if (initialPayment !== undefined && initialPayment < 0) {
+        throw BaseError.BadRequest("Boshlang'ich to'lov noto'g'ri");
+      }
+
+      if (totalPrice !== undefined && totalPrice <= initialPayment) {
+        throw BaseError.BadRequest(
+          "Umumiy narx boshlang'ich to'lovdan katta bo'lishi kerak"
+        );
+      }
+
+      // Service chaqirish
+      const result = await contractService.analyzeContractEditImpact(id, {
+        monthlyPayment,
+        initialPayment,
+        totalPrice,
+      });
+
+      console.log("✅ Impact analysis completed");
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("❌ === ANALYZE IMPACT FAILED ===");
+      console.error("Error:", error);
       return next(error);
     }
   }
