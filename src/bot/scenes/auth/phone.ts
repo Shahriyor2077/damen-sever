@@ -15,7 +15,7 @@ phoneScene.enter(async (ctx) => {
         .oneTime()
     );
   } catch (err: any) {
-    console.log("Phone scene enter error:", err.message);
+    // Error handling
   }
 });
 
@@ -29,8 +29,6 @@ phoneScene.on("contact", async (ctx) => {
     if (!phoneNumber.startsWith("+")) {
       phoneNumber = "+" + phoneNumber;
     }
-
-    console.log("phoneNumber", phoneNumber);
 
     const employee = await Employee.findOne({
       phoneNumber: phoneNumber,
@@ -53,7 +51,7 @@ phoneScene.on("contact", async (ctx) => {
       return;
     }
   } catch (e) {
-    console.log("phone.js: " + e);
+    // Error handling
   }
 });
 
@@ -68,7 +66,7 @@ phoneScene.on("text", async (ctx) => {
         .oneTime()
     );
   } catch (e) {
-    console.log("phone.js: " + e);
+    // Error handling
   }
 });
 

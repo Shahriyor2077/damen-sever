@@ -16,11 +16,8 @@ class DashboardService {
     // Cache tekshirish
     const now = Date.now();
     if (this.cache && now - this.cacheTime < this.CACHE_DURATION) {
-      console.log("📦 Returning cached dashboard data");
       return this.cache;
     }
-
-    console.log("🔄 Fetching fresh dashboard data");
     const [employeeCount, customerCount, contractCount, debtorCount] =
       await Promise.all([
         Employee.countDocuments(),

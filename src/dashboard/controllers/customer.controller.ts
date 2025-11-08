@@ -89,8 +89,6 @@ class CustomerController {
       const data = await customerService.create(customerData, user, req.files);
       res.status(201).json(data);
     } catch (error) {
-      console.log("error", error);
-
       return next(error);
     }
   }
@@ -189,8 +187,6 @@ class CustomerController {
       );
       res.status(201).json(data);
     } catch (error) {
-      console.log("error", error);
-
       return next(error);
     }
   }

@@ -27,8 +27,6 @@ class DebtorController {
   async declareDebtors(req: Request, res: Response, next: NextFunction) {
     try {
       const user = req.user;
-      console.log("body", req.body);
-
       const contractIds = req.body.contractIds;
 
       const data = await debtorService.declareDebtors(user, contractIds);

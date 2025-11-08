@@ -26,7 +26,18 @@ startScene.enter(async (ctx) => {
     }
 
     try {
-      await ctx.reply("✅ Tizimga muvaffaqiyatli kirdingiz.");
+      const webAppUrl = config.BOT_WEB_APP_URL || "http://localhost:5174";
+
+      await ctx.reply(
+        `✅ Tizimga muvaffaqiyatli kirdingiz!\n\n` +
+          `👤 Ism: ${employee.firstName} ${employee.lastName}\n` +
+          `📱 Telefon: ${employee.phoneNumber}\n` +
+          `👔 Rol: ${employee.role?.name}\n\n` +
+          `📱 Manager paneliga kirish uchun quyidagi tugmani bosing:`,
+        Markup.keyboard([
+          [Markup.button.webApp("🚀 Manager Panel", webAppUrl)],
+        ]).resize()
+      );
     } catch (replyErr: any) {
       console.log("Reply timeout:", replyErr.message);
     }

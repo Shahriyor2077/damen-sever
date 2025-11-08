@@ -31,22 +31,42 @@ if (!dashbordHostUrl || !BotHostUrl) {
   );
 }
 
+// CORS configuration
 const allowedOrigins = [
   dashbordHostUrl,
   BotHostUrl,
   "https://www.damen.uz",
-  "http://localhost:5174",
-  "http://localhost:5173",
+  "https://damen-web.vercel.app",
 ];
 
+// Add bot web app URL if exists
 if (botWebAppUrl) {
   allowedOrigins.push(botWebAppUrl);
+}
+
+// Development rejimida localhost'larni qo'shish
+if (process.env.NODE_ENV === "development") {
+  allowedOrigins.push("http://localhost:5174");
+  allowedOrigins.push("http://localhost:5173");
 }
 
 app.use(
   cors({
     credentials: true,
-    origin: allowedOrigins,
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ CORS blocked origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
   })
 );
 
@@ -70,6 +90,13 @@ app.use("/upl", uploadsCsv);
 app.use("/api", routes);
 app.use("/api/seller", routesSeller);
 app.use("/api/bot", routesBot);
+
+// Telegram webhook endpoint
+import bot from "./bot/main";
+app.post("/telegram-webhook", (req, res) => {
+  bot.handleUpdate(req.body, res);
+});
+
 app.get("/", (req, res) => {
   res.json({ test: "nasiya server" });
 });

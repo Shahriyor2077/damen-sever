@@ -28,9 +28,10 @@ export const botManager = async (
     if (!user) return next(BaseError.UnauthorizedError());
 
     const userRole = user.role?.name;
-    console.log("userRole", userRole);
 
-    if (userRole !== "manager") {
+    // Manager va Seller rollariga ruxsat berish
+    const allowedRoles = ["manager", "seller", "admin", "moderator"];
+    if (!allowedRoles.includes(userRole || "")) {
       return next(BaseError.ForbiddenError());
     }
 

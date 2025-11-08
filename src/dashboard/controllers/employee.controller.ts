@@ -35,8 +35,6 @@ class EmployeeController {
       const data = await employeeService.getManager();
       res.status(200).json(data);
     } catch (error) {
-      console.log("error", error);
-
       return next(error);
     }
   }
@@ -72,17 +70,12 @@ class EmployeeController {
       const data = await employeeService.update(employeeData);
       res.status(200).json(data);
     } catch (error) {
-      console.log("error", error);
-
       return next(error);
     }
   }
   async withdrawFromBalance(req: Request, res: Response, next: NextFunction) {
     try {
-      const withdraw = plainToInstance(
-        withdrawFromBalanceDto,
-        req.body || {}
-      );
+      const withdraw = plainToInstance(withdrawFromBalanceDto, req.body || {});
       const errors = await validate(withdraw);
       if (errors.length > 0) {
         const formattedErrors = handleValidationErrors(errors);
@@ -93,8 +86,6 @@ class EmployeeController {
       const data = await employeeService.withdrawFromBalance(withdraw);
       res.status(200).json(data);
     } catch (error) {
-      console.log("error", error);
-
       return next(error);
     }
   }

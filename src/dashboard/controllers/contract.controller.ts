@@ -22,7 +22,6 @@ class ContractController {
 
   async getNewAll(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("getNewAll called");
       const data = await contractService.getAllNewContract();
       res.status(200).json(data);
     } catch (error) {
@@ -51,28 +50,20 @@ class ContractController {
 
   async create(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("🎯 CONTRACT CONTROLLER CREATE CALLED");
-      console.log("📦 Request body:", JSON.stringify(req.body, null, 2));
-      console.log("👤 User:", req.user);
-
       const user = req.user;
       const contractData = plainToInstance(CreateContractDto, req.body || {});
       const errors = await validate(contractData);
 
       if (errors.length > 0) {
-        console.log("❌ Validation errors:", errors);
         const formattedErrors = handleValidationErrors(errors);
         return next(
           BaseError.BadRequest("Shartnoma ma'lumotlari xato.", formattedErrors)
         );
       }
 
-      console.log("✅ Validation passed, calling service...");
       const data = await contractService.create(contractData, user);
-      console.log("✅ Service returned:", data);
       res.status(201).json(data);
     } catch (error) {
-      console.log("❌ Controller error:", error);
       return next(error);
     }
   }
@@ -89,14 +80,8 @@ class ContractController {
    */
   async update(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("🔄 === CONTRACT CONTROLLER UPDATE CALLED ===");
-      console.log("📦 Request body:", JSON.stringify(req.body, null, 2));
-      console.log("👤 User:", req.user?.sub);
-
-      // 1. User ma'lumotlarini olish
       const user = req.user;
       if (!user) {
-        console.log("❌ User not authenticated");
         return next(
           BaseError.UnauthorizedError(
             "Foydalanuvchi autentifikatsiya qilinmagan"
@@ -104,27 +89,18 @@ class ContractController {
         );
       }
 
-      // 2. Request body validatsiya (Requirement 10.1)
-      console.log("🔍 Validating request body...");
       const contractData = plainToInstance(UpdateContractDto, req.body || {});
       const errors = await validate(contractData);
 
       if (errors.length > 0) {
-        console.log("❌ Validation errors:", errors);
         const formattedErrors = handleValidationErrors(errors);
         return next(
           BaseError.BadRequest("Shartnoma ma'lumotlari xato.", formattedErrors)
         );
       }
-      console.log("✅ Validation passed");
 
-      // 3. Service chaqirish (Requirement 10.2)
-      console.log("📞 Calling contractService.update()...");
       const result = await contractService.update(contractData, user);
-      console.log("✅ Service call successful");
 
-      // 4. Success response formatlash (Requirement 10.3)
-      console.log("📤 Formatting response...");
       const response = {
         success: true,
         message: result.message,
@@ -143,24 +119,8 @@ class ContractController {
         timestamp: new Date().toISOString(),
       };
 
-      console.log("🎉 === CONTRACT CONTROLLER UPDATE COMPLETED ===");
-      console.log("📊 Response summary:", {
-        changesCount: result.changes.length,
-        affectedPayments: result.affectedPayments,
-        underpaidCount: result.impactSummary.underpaidCount,
-        overpaidCount: result.impactSummary.overpaidCount,
-      });
-
       res.status(200).json(response);
     } catch (error) {
-      // 5. Error handling va logging (Requirement 10.4)
-      console.error("❌ === CONTRACT CONTROLLER UPDATE FAILED ===");
-      console.error("Error details:", {
-        name: error instanceof Error ? error.name : "Unknown",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-
       return next(error);
     }
   }
@@ -179,8 +139,6 @@ class ContractController {
       const data = await contractService.sellerCreate(contractData, user);
       res.status(201).json(data);
     } catch (error) {
-      console.log("er", error);
-
       return next(error);
     }
   }
@@ -202,18 +160,9 @@ class ContractController {
    */
   async analyzeImpact(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("🔍 === ANALYZE IMPACT CALLED ===");
       const { id } = req.params;
       const { monthlyPayment, initialPayment, totalPrice } = req.body;
 
-      console.log("📋 Contract ID:", id);
-      console.log("📊 New values:", {
-        monthlyPayment,
-        initialPayment,
-        totalPrice,
-      });
-
-      // Validatsiya
       if (!monthlyPayment || monthlyPayment < 0) {
         throw BaseError.BadRequest("Oylik to'lov noto'g'ri");
       }
@@ -228,18 +177,14 @@ class ContractController {
         );
       }
 
-      // Service chaqirish
       const result = await contractService.analyzeContractEditImpact(id, {
         monthlyPayment,
         initialPayment,
         totalPrice,
       });
 
-      console.log("✅ Impact analysis completed");
       res.status(200).json(result);
     } catch (error) {
-      console.error("❌ === ANALYZE IMPACT FAILED ===");
-      console.error("Error:", error);
       return next(error);
     }
   }

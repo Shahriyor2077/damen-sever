@@ -4,23 +4,15 @@ import BaseError from "../../utils/base.error";
 
 class DashboardController {
   async dashboard(req: Request, res: Response, next: NextFunction) {
-    console.log("=== DASHBOARD ENDPOINT START ===");
-
     try {
-      console.log("Calling dashboard service...");
       const data = await dashboardService.dashboard();
-      console.log("Dashboard service response:", data);
       res.status(201).json(data);
     } catch (error) {
-      console.error("Dashboard error:", error);
       return next(error);
     }
   }
   async statistic(req: Request, res: Response, next: NextFunction) {
     try {
-      console.log("Statistic endpoint called with range:", req.query.range);
-
-      // Sodda statistic - faqat oxirgi 12 oy
       const monthNames = [
         "Dec",
         "Jan",
@@ -36,7 +28,6 @@ class DashboardController {
         "Nov",
       ];
 
-      // Database'dan haqiqiy ma'lumotlarni olish
       const Payment = (await import("../../schemas/payment.schema")).default;
       const dayjs = (await import("dayjs")).default;
 
@@ -46,9 +37,6 @@ class DashboardController {
         .startOf("month")
         .toDate();
 
-      console.log("Date range:", { startDate, now });
-
-      // Payment collection'dan to'lovlarni olish
       const payments = await Payment.find({
         isPaid: true,
         date: { $gte: startDate },
@@ -56,21 +44,15 @@ class DashboardController {
         .select("amount date")
         .lean();
 
-      console.log("Found payments:", payments.length);
-      console.log("Sample payments:", payments.slice(0, 3));
-
-      // Bo'sh result yaratish
       const monthlyData = new Array(12).fill(0);
 
-      // To'lovlarni oylarga bo'lib joylashtirish
       for (const payment of payments) {
         const paymentDate = dayjs(payment.date);
-        const monthIndex = paymentDate.month(); // 0-11
+        const monthIndex = paymentDate.month();
 
-        // Oxirgi 12 oy ichida bo'lsa
         const monthsAgo = dayjs(now).diff(paymentDate, "month");
         if (monthsAgo >= 0 && monthsAgo < 12) {
-          const resultIndex = 11 - monthsAgo; // Reverse order
+          const resultIndex = 11 - monthsAgo;
           monthlyData[resultIndex] += payment.amount;
         }
       }
@@ -80,10 +62,8 @@ class DashboardController {
         series: monthlyData,
       };
 
-      console.log("Returning statistic result:", result);
       res.status(200).json(result);
     } catch (error) {
-      console.error("Statistic error:", error);
       return next(error);
     }
   }

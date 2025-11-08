@@ -72,12 +72,10 @@ export const deleteFile = (filePath: string) => {
   try {
     if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log("✅ File deleted:", filePath);
       return true;
     }
     return false;
   } catch (error) {
-    console.error("❌ Error deleting file:", error);
     return false;
   }
 };

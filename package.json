@@ -15,7 +15,8 @@
     "deploy:production": "bash scripts/deploy-production.sh",
     "rollback:production": "bash scripts/rollback-production.sh",
     "monitor:production": "bash scripts/monitor-production.sh",
-    "test:data": "node scripts/generate-test-data.js"
+    "test:data": "node scripts/generate-test-data.js",
+    "test:auth": "ts-node src/test-auth-no-blocking.ts"
   },
   "keywords": [],
   "author": "",

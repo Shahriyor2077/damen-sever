@@ -18,8 +18,6 @@ class CashController {
       const data = await cashService.confirmations(cashIds, user);
       res.status(200).json(data);
     } catch (error) {
-      console.log("err", error);
-
       return next(error);
     }
   }

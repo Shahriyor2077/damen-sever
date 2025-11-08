@@ -53,30 +53,39 @@ const startApplication = async () => {
 
     // Start bot based on environment and configuration
     const enableBot = process.env.ENABLE_BOT;
-    const isProduction = process.env.NODE_ENV === "production";
     const hasToken = !!process.env.BOT_TOKEN;
+    const botHostUrl = process.env.BOT_HOST_URL;
 
     console.log(`🔍 Bot configuration check:`);
     console.log(`   - Has token: ${hasToken}`);
     console.log(`   - Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`   - ENABLE_BOT: ${enableBot || "not set"}`);
 
-    // Bot startup logic:
-    // 1. If ENABLE_BOT is explicitly set to "false", don't start bot
-    // 2. If token exists, start bot by default (unless disabled)
     const shouldStartBot = hasToken && enableBot !== "false";
 
-    if (shouldStartBot) {
-      console.log("🤖 Starting Telegram bot...");
+    if (shouldStartBot && botHostUrl) {
+      console.log("🤖 Setting up Telegram webhook...");
       try {
-        await startBot(bot);
-      } catch (botError) {
-        console.error("🚫 Bot startup failed, but server continues:", botError);
+        // Delete old webhook
+        await bot.telegram.deleteWebhook({ drop_pending_updates: true });
+        
+        // Set new webhook
+        const webhookUrl = `${botHostUrl}/telegram-webhook`;
+        await bot.telegram.setWebhook(webhookUrl, {
+          drop_pending_updates: true,
+        });
+        
+        console.log(`✅ Webhook o'rnatildi: ${webhookUrl}`);
+        
+        const webhookInfo = await bot.telegram.getWebhookInfo();
+        console.log(`📊 Webhook status: ${webhookInfo.url ? 'Active' : 'Inactive'}`);
+      } catch (botError: any) {
+        console.error("🚫 Webhook setup failed:", botError.message);
       }
     } else if (hasToken && enableBot === "false") {
       console.log("🚫 Bot disabled by ENABLE_BOT=false");
     } else {
-      console.log("⚠️ Bot token not found, skipping bot initialization");
+      console.log("⚠️ Bot token or BOT_HOST_URL not found, skipping bot initialization");
     }
   } catch (err) {
     console.error("Application start error:", err);

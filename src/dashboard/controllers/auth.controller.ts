@@ -34,8 +34,6 @@ class AuthController {
       });
       res.json({ profile: data.profile, token: data.accessToken });
     } catch (error) {
-      console.log("errror", error);
-
       return next(error);
     }
   }
@@ -55,10 +53,6 @@ class AuthController {
   async refresh(req: Request, res: Response, next: NextFunction) {
     try {
       const { refresh_token } = req.cookies;
-      console.log(
-        "Refresh token from cookies:",
-        refresh_token ? "exists" : "missing"
-      );
       const data = await authService.refresh(refresh_token);
       res.json(data);
     } catch (error) {

@@ -17,28 +17,44 @@ import jwt from "../../utils/jwt";
 class AuthController {
   async telegram(req: Request, res: Response, next: NextFunction) {
     try {
+      console.log("🔐 === BOT AUTH REQUEST ===");
+      console.log(
+        "📍 Request body:",
+        JSON.stringify(req.body).substring(0, 100)
+      );
+
       const { initData } = req.body;
 
       if (!initData) {
+        console.log("❌ initData mavjud emas");
         return next(BaseError.ForbiddenError("initData topilmadi"));
       }
 
+      console.log("✅ initData mavjud, uzunligi:", initData.length);
       const telegramId = checkTelegramInitData(initData);
-      if (!telegramId) {
-        console.log("telegramId", telegramId);
 
-        return next(BaseError.UnauthorizedError("initData noto‘g‘ri"));
+      if (!telegramId) {
+        console.log("❌ telegramId parse qilinmadi:", telegramId);
+        return next(BaseError.UnauthorizedError("initData noto'g'ri"));
       }
+
+      console.log("✅ telegramId topildi:", telegramId);
+      console.log("🔍 Database'dan xodim qidirilmoqda...");
 
       const employee = await Employee.findOne({
-        telegramId,
+        telegramId: telegramId.toString(),
         isActive: true,
         isDeleted: false,
-      });
+      }).populate("role");
 
       if (!employee) {
+        console.log("❌ Xodim topilmadi. TelegramId:", telegramId);
+        console.log("💡 Iltimos, avval telefon raqamingizni bot'ga yuboring");
         return next(BaseError.NotFoundError("Foydalanuvchi topilmadi"));
       }
+
+      console.log("✅ Xodim topildi:", employee.firstName, employee.lastName);
+      console.log("👤 Rol:", employee.role?.name);
 
       const employeeData: IEmployeeData = {
         id: employee.id,
@@ -56,9 +72,12 @@ class AuthController {
       };
 
       const accessToken = jwt.signBot(employeeDto);
+      console.log("✅ Token yaratildi");
+      console.log("🎉 === AUTH SUCCESSFUL ===\n");
+
       res.json({ profile: employeeData, token: accessToken });
     } catch (err) {
-      console.error("Telegram auth error:", err);
+      console.error("❌ Telegram auth error:", err);
       return next(err);
     }
   }

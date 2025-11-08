@@ -51,8 +51,6 @@ export const checkPermission = (requiredPermission: string) => {
         : [];
 
       const allPermissions = new Set([...rolePermissions, ...userPermissions]);
-      console.log("allPermissions", allPermissions);
-      console.log("rr", !allPermissions.has(requiredPermission));
 
       if (!allPermissions.has(requiredPermission)) {
         return next(BaseError.ForbiddenError());
