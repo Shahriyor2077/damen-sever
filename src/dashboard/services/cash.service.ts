@@ -10,7 +10,21 @@ class CashService {
    */
   async getPendingPayments() {
     try {
-      console.log("🔍 Fetching pending payments...");
+      console.log("🔍 === FETCHING PENDING PAYMENTS ===");
+
+      // Debug: Barcha to'lovlarni sanash
+      const totalPayments = await Payment.countDocuments();
+      const pendingCount = await Payment.countDocuments({
+        isPaid: false,
+        status: PaymentStatus.PENDING,
+      });
+      const paidCount = await Payment.countDocuments({ isPaid: true });
+
+      console.log("📊 Payment Statistics:", {
+        total: totalPayments,
+        pending: pendingCount,
+        paid: paidCount,
+      });
 
       const payments = await Payment.find({
         isPaid: false,
@@ -23,9 +37,19 @@ class CashService {
 
       console.log("✅ Found pending payments:", payments.length);
 
+      if (payments.length > 0) {
+        console.log("📋 Sample payment:", {
+          id: payments[0]._id,
+          customer: payments[0].customerId,
+          manager: payments[0].managerId,
+          amount: payments[0].amount,
+          status: payments[0].status,
+        });
+      }
+
       return payments;
     } catch (error) {
-      console.error("Error fetching pending payments:", error);
+      console.error("❌ Error fetching pending payments:", error);
       throw BaseError.InternalServerError(String(error));
     }
   }

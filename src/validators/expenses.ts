@@ -44,4 +44,8 @@ export class withdrawFromBalanceDto {
   @ValidateNested()
   @Type(() => CurrencyDetailsDto)
   currencyDetails: CurrencyDetailsDto;
+
+  @IsString({ message: "Izoh matn bo'lishi kerak" })
+  @IsOptional()
+  notes?: string;
 }

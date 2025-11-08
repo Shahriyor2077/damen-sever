@@ -179,23 +179,31 @@ class ContractService {
       }
 
       // 2. Maksimal o'zgarishni tekshirish - 50% (Requirement 9.2)
-      if (
-        change.field === "monthlyPayment" ||
-        change.field === "initialPayment"
-      ) {
-        if (change.oldValue > 0) {
+      // FAQAT monthlyPayment uchun 50% cheklovi
+      if (change.field === "monthlyPayment") {
+        // Agar eski qiymat 0 bo'lsa, bu yangi qiymat qo'shish, validatsiya kerak emas
+        if (change.oldValue > 0 && change.newValue > 0) {
           const changePercent = Math.abs(
             (change.difference / change.oldValue) * 100
           );
 
+          console.log(
+            "📊 Monthly Payment Change Percent:",
+            changePercent.toFixed(2) + "%"
+          );
+
           if (changePercent > 50) {
             throw BaseError.BadRequest(
-              `${change.field} ni 50% dan ko'p o'zgartirish mumkin emas. ` +
-                `Hozirgi o'zgarish: ${changePercent.toFixed(1)}%`
+              `Oylik to'lovni 50% dan ko'p o'zgartirish mumkin emas. ` +
+                `Hozirgi o'zgarish: ${changePercent.toFixed(1)}%\n` +
+                `Eski qiymat: ${change.oldValue}, Yangi qiymat: ${change.newValue}, Farq: ${change.difference}`
             );
           }
         }
       }
+
+      // initialPayment uchun cheklov yo'q - istalgancha o'zgartirish mumkin
+      // Chunki bu boshlang'ich to'lov va mijoz bilan kelishilgan holda o'zgartirilishi mumkin
 
       // 3. Total price > initial payment tekshirish (Requirement 9.3)
       if (change.field === "totalPrice" || change.field === "initialPayment") {
@@ -955,6 +963,20 @@ class ContractService {
                 },
               },
             },
+            {
+              $project: {
+                _id: 1,
+                amount: 1,
+                date: 1,
+                isPaid: 1,
+                paymentType: 1,
+                status: 1,
+                remainingAmount: 1,
+                excessAmount: 1,
+                expectedAmount: 1,
+                notes: 1,
+              },
+            },
           ],
         },
       },
@@ -1267,56 +1289,91 @@ class ContractService {
 
       // Monthly payment o'zgarishi
       const monthlyPaymentDiff =
-        (data.monthlyPayment || contract.monthlyPayment) -
-        contract.monthlyPayment;
+        (data.monthlyPayment !== undefined
+          ? data.monthlyPayment
+          : contract.monthlyPayment) - contract.monthlyPayment;
 
       if (monthlyPaymentDiff !== 0) {
         changes.push({
           field: "monthlyPayment",
           oldValue: contract.monthlyPayment,
-          newValue: data.monthlyPayment,
+          newValue:
+            data.monthlyPayment !== undefined
+              ? data.monthlyPayment
+              : contract.monthlyPayment,
           difference: monthlyPaymentDiff,
         });
         console.log(
           `📅 Monthly payment change: ${contract.monthlyPayment} → ${
-            data.monthlyPayment
+            data.monthlyPayment !== undefined
+              ? data.monthlyPayment
+              : contract.monthlyPayment
           } (${monthlyPaymentDiff > 0 ? "+" : ""}${monthlyPaymentDiff})`
         );
       }
 
       // Initial payment o'zgarishi
+      console.log("🔍 DEBUG Initial Payment:", {
+        "data.initialPayment": data.initialPayment,
+        "contract.initialPayment": contract.initialPayment,
+        "data.initialPayment !== undefined": data.initialPayment !== undefined,
+      });
+
       const initialPaymentDiff =
-        (data.initialPayment || contract.initialPayment) -
-        contract.initialPayment;
+        (data.initialPayment !== undefined
+          ? data.initialPayment
+          : contract.initialPayment) - contract.initialPayment;
 
       if (initialPaymentDiff !== 0) {
+        const oldValue = contract.initialPayment;
+        const newValue =
+          data.initialPayment !== undefined
+            ? data.initialPayment
+            : contract.initialPayment;
+
+        console.log("🔍 DEBUG Change Object:", {
+          field: "initialPayment",
+          oldValue,
+          newValue,
+          difference: initialPaymentDiff,
+          "oldValue > 0": oldValue > 0,
+          "newValue > 0": newValue > 0,
+        });
+
         changes.push({
           field: "initialPayment",
-          oldValue: contract.initialPayment,
-          newValue: data.initialPayment,
+          oldValue,
+          newValue,
           difference: initialPaymentDiff,
         });
         console.log(
-          `💰 Initial payment change: ${contract.initialPayment} → ${
-            data.initialPayment
-          } (${initialPaymentDiff > 0 ? "+" : ""}${initialPaymentDiff})`
+          `💰 Initial payment change: ${oldValue} → ${newValue} (${
+            initialPaymentDiff > 0 ? "+" : ""
+          }${initialPaymentDiff})`
         );
       }
 
       // Total price o'zgarishi
       const totalPriceDiff =
-        (data.totalPrice || contract.totalPrice) - contract.totalPrice;
+        (data.totalPrice !== undefined
+          ? data.totalPrice
+          : contract.totalPrice) - contract.totalPrice;
 
       if (totalPriceDiff !== 0) {
         changes.push({
           field: "totalPrice",
           oldValue: contract.totalPrice,
-          newValue: data.totalPrice,
+          newValue:
+            data.totalPrice !== undefined
+              ? data.totalPrice
+              : contract.totalPrice,
           difference: totalPriceDiff,
         });
         console.log(
           `📊 Total price change: ${contract.totalPrice} → ${
-            data.totalPrice
+            data.totalPrice !== undefined
+              ? data.totalPrice
+              : contract.totalPrice
           } (${totalPriceDiff > 0 ? "+" : ""}${totalPriceDiff})`
         );
       }

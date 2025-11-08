@@ -37,6 +37,7 @@ const seedRoles = async () => {
           Permission.VIEW_DEBTOR,
           Permission.VIEW_CASH,
           Permission.CREATE_CASH,
+          Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
           Permission.VIEW_DASHBOARD,
         ],
       }
@@ -62,6 +63,7 @@ const seedRoles = async () => {
               Permission.VIEW_DEBTOR,
               Permission.VIEW_CASH,
               Permission.CREATE_CASH,
+              Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
               Permission.VIEW_DASHBOARD,
             ],
           },
@@ -168,6 +170,7 @@ const seedRoles = async () => {
           Permission.VIEW_DEBTOR,
           Permission.VIEW_CASH,
           Permission.CREATE_CASH,
+          Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
           Permission.VIEW_DASHBOARD,
         ],
       },

@@ -329,17 +329,18 @@ class DashboardService {
     const current = dayjs();
 
     if (range === "daily") {
+      // Oxirgi 30 kun uchun label'lar yaratish
       for (let i = 29; i >= 0; i--) {
         const date = current.subtract(i, "day");
-        const key = `${date.year()}-${date.month() + 1}-${date.date()}`;
-        const label = date.format("DD");
+        const label = date.format("DD MMM"); // "01 Nov" formatida
         resultMap.set(label, 0);
       }
 
+      // To'lovlarni label'larga joylash
       for (const item of payments) {
         const label = dayjs(
           `${item._id.year}-${item._id.month}-${item._id.day}`
-        ).format("DD");
+        ).format("DD MMM");
         if (resultMap.has(label)) {
           resultMap.set(label, item.totalAmount);
         }

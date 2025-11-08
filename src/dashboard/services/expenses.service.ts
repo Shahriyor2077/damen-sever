@@ -49,23 +49,28 @@ class ExpensesSrvice {
         { $limit: limit },
         {
           $project: {
-            id: { $toString: "$_id" },
-            method: 1,
+            _id: 1,
             notes: 1,
             isActive: 1,
             createdAt: 1,
             currencyDetails: {
               dollar: "$dollar",
               sum: "$sum",
-              plastic: "$plastic",
-              visa: "$visa",
-              mastercard: "$mastercard",
             },
           },
         },
       ]),
       Expenses.countDocuments({ managerId: new Types.ObjectId(id) }),
     ]);
+
+    console.log("📊 Expenses query result:", {
+      count: expenses.length,
+      total,
+      page,
+      limit,
+      employeeId: id,
+      sample: expenses[0] || "No expenses found",
+    });
 
     return {
       expenses,

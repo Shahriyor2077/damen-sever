@@ -259,6 +259,10 @@ class EmployeeService {
   }
 
   async withdrawFromBalance(data: withdrawFromBalanceDto) {
+    console.log("💰 === WITHDRAW FROM BALANCE ===");
+    console.log("Employee ID:", data._id);
+    console.log("Amount:", data.currencyDetails);
+
     const employeeExist = await Employee.findById(data._id)
       .populate("auth")
       .exec();
@@ -273,13 +277,49 @@ class EmployeeService {
       throw BaseError.NotFoundError("Balans topilmadi");
     }
 
+    // 1. Balansni tekshirish - yetarli pul bormi?
     const changes = data.currencyDetails;
+    if (balance.dollar < changes.dollar) {
+      throw BaseError.BadRequest(
+        `Balansda yetarli dollar yo'q. Mavjud: ${balance.dollar}, Kerak: ${changes.dollar}`
+      );
+    }
+    if (balance.sum < changes.sum) {
+      throw BaseError.BadRequest(
+        `Balansda yetarli so'm yo'q. Mavjud: ${balance.sum}, Kerak: ${changes.sum}`
+      );
+    }
+
+    // 2. Expense yaratish (xarajat yozuvi)
+    const { Expenses } = await import("../../schemas/expenses.schema");
+    const expense = await Expenses.create({
+      managerId: employeeExist._id,
+      dollar: changes.dollar || 0,
+      sum: changes.sum || 0,
+      isActive: true,
+      notes: data.notes || "Balansdan pul yechib olindi",
+    });
+
+    console.log("✅ Expense created:", expense._id);
+
+    // 3. Balansni kamaytirish
     balance.dollar -= changes.dollar;
     balance.sum -= changes.sum;
-
     await balance.save();
 
-    return { message: "Balance ma'lumotlari yangilandi." };
+    console.log("✅ Balance updated:", {
+      newDollar: balance.dollar,
+      newSum: balance.sum,
+    });
+
+    return {
+      message: "Pul muvaffaqiyatli yechib olindi va xarajat yaratildi.",
+      expenseId: expense._id,
+      newBalance: {
+        dollar: balance.dollar,
+        sum: balance.sum,
+      },
+    };
   }
 }
 

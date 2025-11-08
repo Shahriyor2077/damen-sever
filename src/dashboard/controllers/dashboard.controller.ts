@@ -13,54 +13,16 @@ class DashboardController {
   }
   async statistic(req: Request, res: Response, next: NextFunction) {
     try {
-      const monthNames = [
-        "Dec",
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-      ];
+      // Query parametridan range olish (daily, monthly, yearly)
+      const range = (req.query.range as string) || "monthly";
 
-      const Payment = (await import("../../schemas/payment.schema")).default;
-      const dayjs = (await import("dayjs")).default;
-
-      const now = new Date();
-      const startDate = dayjs(now)
-        .subtract(11, "month")
-        .startOf("month")
-        .toDate();
-
-      const payments = await Payment.find({
-        isPaid: true,
-        date: { $gte: startDate },
-      })
-        .select("amount date")
-        .lean();
-
-      const monthlyData = new Array(12).fill(0);
-
-      for (const payment of payments) {
-        const paymentDate = dayjs(payment.date);
-        const monthIndex = paymentDate.month();
-
-        const monthsAgo = dayjs(now).diff(paymentDate, "month");
-        if (monthsAgo >= 0 && monthsAgo < 12) {
-          const resultIndex = 11 - monthsAgo;
-          monthlyData[resultIndex] += payment.amount;
-        }
+      // Validatsiya
+      if (!["daily", "monthly", "yearly"].includes(range)) {
+        return next(BaseError.BadRequest("Noto'g'ri range parametri"));
       }
 
-      const result = {
-        categories: monthNames,
-        series: monthlyData,
-      };
+      // Service'dan ma'lumot olish
+      const result = await dashboardService.statistic(range);
 
       res.status(200).json(result);
     } catch (error) {
