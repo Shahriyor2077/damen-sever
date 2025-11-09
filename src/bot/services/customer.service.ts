@@ -258,6 +258,23 @@ class CustomerService {
           totalPaid: 1,
           remainingDebt: 1,
           monthlyPayment: 1,
+          payments: {
+            $map: {
+              input: {
+                $filter: {
+                  input: "$paymentDetails",
+                  as: "p",
+                  cond: { $eq: ["$p.isPaid", true] },
+                },
+              },
+              as: "payment",
+              in: {
+                amount: "$payment.amount",
+                date: "$payment.date",
+                isPaid: "$payment.isPaid",
+              },
+            },
+          },
         },
       },
     ]);

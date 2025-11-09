@@ -37,6 +37,9 @@ const allowedOrigins = [
   BotHostUrl,
   "https://www.damen.uz",
   "https://damen-web.vercel.app",
+  "http://localhost:5174",
+  "http://localhost:5173"
+
 ];
 
 // Add bot web app URL if exists
@@ -90,6 +93,21 @@ app.use("/upl", uploadsCsv);
 app.use("/api", routes);
 app.use("/api/seller", routesSeller);
 app.use("/api/bot", routesBot);
+
+
+const botDistPath = path.join(__dirname, "../../bot/dist");
+
+// /bot yo'lida bot Web App'ni serve qilish
+app.use("/bot", express.static(botDistPath, {
+  index: "index.html",
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+  }
+}));
 
 // Telegram webhook endpoint
 import bot from "./bot/main";
