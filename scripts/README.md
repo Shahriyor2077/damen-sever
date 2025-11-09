@@ -449,3 +449,75 @@ Internal use only - Company proprietary
 
 **Last Updated**: 2025-01-XX
 **Maintained By**: DevOps Team
+
+## Database Scripts
+
+### 🔍 verify-payment-indexes.ts
+
+Verification script for Payment collection indexes:
+
+- Lists all indexes on Payment collection
+- Verifies required indexes exist
+- Checks index configuration
+- Displays collection statistics
+
+**Usage:**
+
+```bash
+npx ts-node scripts/verify-payment-indexes.ts
+# or
+npm run verify:indexes
+```
+
+**Required Indexes:**
+
+1. `idx_isPaid_status` - Compound index on isPaid and status fields
+2. `idx_date` - Index on date field for sorting
+
+**Output Example:**
+
+```
+📋 Checking indexes on Payment collection...
+
+Current indexes:
+================
+
+1. _id_
+   Keys: {"_id":1}
+
+2. idx_isPaid_status
+   Keys: {"isPaid":1,"status":1}
+   Background: true
+
+3. idx_date
+   Keys: {"date":-1}
+   Background: true
+
+🔍 Verifying required indexes...
+
+✅ idx_isPaid_status: Found and correct
+✅ idx_date: Found and correct
+
+📊 Collection Statistics:
+
+Total documents: 1234
+Total indexes: 3
+Total index size: 45.67 KB
+
+==================================================
+🎉 All required indexes are properly configured!
+==================================================
+```
+
+**When to Use:**
+
+- After running migration 002
+- When troubleshooting slow queries
+- During performance optimization
+- As part of deployment verification
+
+**Related:**
+
+- Migration: `src/migrations/002-add-payment-indexes.ts`
+- Schema: `src/schemas/payment.schema.ts`
+- Migration docs: `src/migrations/README.md`

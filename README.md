@@ -35,6 +35,16 @@ Nasiya savdo tizimi - bu nasiya asosida savdo qiluvchi bizneslar uchun to'liq bo
 - To'lov tarixi
 - Qarzdorlar ro'yxati
 
+### 💵 **Kassa Tizimi**
+
+- Pending to'lovlarni ko'rish va boshqarish
+- To'lovlarni tasdiqlash (bir yoki bir nechta)
+- To'lovlarni rad etish (sabab bilan)
+- Menejer bo'yicha filtrlash
+- Real-time balans yangilanishi
+- Kechikish kunlarini kuzatish
+- To'lov ma'lumotlarini batafsil ko'rish
+
 ### 🤖 **Telegram Bot**
 
 - Xodimlar uchun mobil interfeys
@@ -182,6 +192,94 @@ npm run preview
 - \`GET /api/contract\` - Shartnomalar ro'yxati
 - \`POST /api/contract\` - Yangi shartnoma
 - \`PUT /api/contract/:id\` - Shartnoma yangilash
+
+### Cash (Kassa)
+
+- \`GET /api/cash/pending\` - Pending to'lovlar ro'yxati
+- \`POST /api/cash/confirm-payments\` - To'lovlarni tasdiqlash
+- \`POST /api/cash/reject-payment\` - To'lovni rad etish
+
+**Kassa API Tafsilotlari:**
+
+#### GET /api/cash/pending
+
+Tasdiqlanmagan (PENDING) to'lovlarni olish.
+
+**Response:**
+\`\`\`json
+[
+{
+"_id": "payment_id",
+"amount": 1000000,
+"date": "2024-01-15T10:00:00.000Z",
+"isPaid": false,
+"status": "PENDING",
+"paymentType": "monthly",
+"customerId": {
+"_id": "customer_id",
+"firstName": "Ali",
+"lastName": "Valiyev",
+"phoneNumber": "+998901234567"
+},
+"managerId": {
+"_id": "manager_id",
+"firstName": "Vali",
+"lastName": "Aliyev"
+},
+"notes": {
+"text": "To'lov qabul qilindi"
+}
+}
+]
+\`\`\`
+
+#### POST /api/cash/confirm-payments
+
+Bir yoki bir nechta to'lovni tasdiqlash.
+
+**Request Body:**
+\`\`\`json
+{
+"paymentIds": ["payment_id_1", "payment_id_2"]
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+"success": true,
+"message": "To'lovlar tasdiqlandi",
+"results": [
+{
+"paymentId": "payment_id_1",
+"status": "success",
+"contract": {...},
+"balance": {...}
+}
+]
+}
+\`\`\`
+
+#### POST /api/cash/reject-payment
+
+To'lovni rad etish.
+
+**Request Body:**
+\`\`\`json
+{
+"paymentId": "payment_id",
+"reason": "Noto'g'ri summa kiritilgan"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+"success": true,
+"message": "To'lov rad etildi",
+"payment": {...}
+}
+\`\`\`
 
 ### Bot API
 

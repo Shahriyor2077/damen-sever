@@ -582,7 +582,11 @@ class ContractService {
         await contract.notes.save();
       }
 
-      // 6. Shartnoma ma'lumotlarini yangilash
+      // 6. Keyingi to'lov sanasini hisoblash (startDate dan 1 oy keyin)
+      const nextPaymentDate = new Date(contract.startDate);
+      nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+
+      // 7. Shartnoma ma'lumotlarini yangilash
       const updatedContract = await Contract.findOneAndUpdate(
         { _id: contractId, isDeleted: false },
         {
@@ -595,7 +599,7 @@ class ContractService {
           monthlyPayment: data.monthlyPayment,
           totalPrice: data.totalPrice,
           initialPaymentDueDate: data.initialPaymentDueDate,
-          nextPaymentDate: data.initialPaymentDueDate,
+          nextPaymentDate: nextPaymentDate,
           info: {
             box: data.box || false,
             mbox: data.mbox || false,
@@ -680,7 +684,11 @@ class ContractService {
         notes: newNotes._id,
         totalPrice: data.totalPrice,
         startDate: contractStartDate,
-        nextPaymentDate: new Date(data.initialPaymentDueDate || new Date()),
+        nextPaymentDate: (() => {
+          const nextDate = new Date(contractStartDate);
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          return nextDate;
+        })(),
         isActive: false, // ⚠️ Tasdiq kutilmoqda
         createBy: createBy._id,
         info: {

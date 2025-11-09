@@ -411,19 +411,22 @@ class PaymentService {
         createBy: String(manager._id),
       });
 
-      // 2. Payment yaratish (to'g'ridan-to'g'ri tasdiqlangan)
+      // 2. Payment yaratish (PAID - avtomatik tasdiqlangan)
       const payment = await Payment.create({
         amount: payData.amount,
         date: new Date(),
-        isPaid: true,
+        isPaid: true, // ✅ Avtomatik tasdiqlangan
         paymentType: PaymentType.MONTHLY,
         customerId: contract.customer,
         managerId: String(manager._id),
         notes: notes._id,
-        status: PaymentStatus.PAID,
+        status: PaymentStatus.PAID, // ✅ PAID status
         confirmedAt: new Date(),
-        confirmedBy: user.sub,
+        confirmedBy: String(manager._id),
+        expectedAmount: contract.monthlyPayment,
       });
+
+      console.log("✅ Payment created (PAID):", payment._id);
 
       // 3. Contract.payments ga qo'shish
       if (!contract.payments) {
@@ -433,17 +436,20 @@ class PaymentService {
       await contract.save();
 
       // 4. Balance yangilash
-      await this.updateBalance(String(manager._id), {
-        dollar: payData.currencyDetails?.dollar || 0,
-        sum: payData.currencyDetails?.sum || 0,
+      await this.updateBalance(manager._id as any, {
+        dollar: payData.amount,
+        sum: 0,
       });
 
-      // 5. Debtor'ni o'chirish
-      await Debtor.deleteMany({
+      // 5. Debtor o'chirish (agar mavjud bo'lsa)
+      const deletedDebtors = await Debtor.deleteMany({
         contractId: contract._id,
       });
+      if (deletedDebtors.deletedCount > 0) {
+        console.log("🗑️ Debtor(s) deleted:", deletedDebtors.deletedCount);
+      }
 
-      // 6. Shartnoma to'liq to'langanini tekshirish
+      // 6. Contract status tekshirish
       await this.checkContractCompletion(String(contract._id));
 
       console.log("✅ Payment completed:", {
@@ -503,22 +509,26 @@ class PaymentService {
         createBy: String(manager._id),
       });
 
-      // 2. Payment yaratish (to'g'ridan-to'g'ri tasdiqlangan)
+      // 2. Payment yaratish (PAID - avtomatik tasdiqlangan)
+      const contract = await Contract.findById(existingDebtor.contractId._id);
+
       const paymentDoc = await Payment.create({
         amount: payData.amount,
         date: new Date(),
-        isPaid: true,
+        isPaid: true, // ✅ Avtomatik tasdiqlangan
         paymentType: PaymentType.MONTHLY,
         customerId: customer,
         managerId: String(manager._id),
         notes: notes._id,
-        status: PaymentStatus.PAID,
+        status: PaymentStatus.PAID, // ✅ PAID status
         confirmedAt: new Date(),
-        confirmedBy: user.sub,
+        confirmedBy: String(manager._id),
+        expectedAmount: contract?.monthlyPayment,
       });
 
+      console.log("✅ Payment created (PAID):", paymentDoc._id);
+
       // 3. Contract.payments ga qo'shish
-      const contract = await Contract.findById(existingDebtor.contractId._id);
       if (contract) {
         if (!contract.payments) {
           contract.payments = [];
@@ -528,24 +538,24 @@ class PaymentService {
       }
 
       // 4. Balance yangilash
-      await this.updateBalance(String(manager._id), {
-        dollar: payData.currencyDetails?.dollar || 0,
-        sum: payData.currencyDetails?.sum || 0,
+      await this.updateBalance(manager._id as any, {
+        dollar: payData.amount,
+        sum: 0,
       });
 
-      // 5. Debtor'ni o'chirish
-      await Debtor.findByIdAndDelete(payData.id);
+      // 5. Debtor o'chirish
+      await existingDebtor.deleteOne();
+      console.log("🗑️ Debtor deleted");
 
-      // 6. Shartnoma to'liq to'langanini tekshirish
+      // 6. Contract status tekshirish
       if (contract) {
         await this.checkContractCompletion(String(contract._id));
       }
 
-      console.log("✅ Debtor payment completed");
-
       return {
         status: "success",
-        message: "To'lov amalga oshirildi",
+        message: "To'lov muvaffaqiyatli amalga oshirildi",
+        paymentId: paymentDoc._id,
       };
     } catch (error) {
       console.error("❌ Error in debtor payment:", error);

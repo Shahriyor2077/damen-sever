@@ -37,7 +37,7 @@ const seedRoles = async () => {
           Permission.VIEW_DEBTOR,
           Permission.VIEW_CASH,
           Permission.CREATE_CASH,
-          Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
+          Permission.UPDATE_CASH, // Manager ham tasdiqlashi mumkin
           Permission.VIEW_DASHBOARD,
         ],
       }
@@ -50,7 +50,7 @@ const seedRoles = async () => {
     const managerRole = await Role.findOne({ name: "manager" });
     if (managerRole) {
       await Employee.updateMany(
-        { role: managerRole._id, permissions: { $size: 0 } },
+        { role: managerRole._id },
         {
           $set: {
             permissions: [
@@ -63,13 +63,13 @@ const seedRoles = async () => {
               Permission.VIEW_DEBTOR,
               Permission.VIEW_CASH,
               Permission.CREATE_CASH,
-              Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
+              Permission.UPDATE_CASH, // Manager ham tasdiqlashi mumkin
               Permission.VIEW_DASHBOARD,
             ],
           },
         }
       );
-      console.log("Manager employees permissions updated.");
+      console.log("Manager employees permissions updated (UPDATE_CASH added).");
     }
 
     // Seller role'dagi employee'larni yangilash
@@ -170,7 +170,7 @@ const seedRoles = async () => {
           Permission.VIEW_DEBTOR,
           Permission.VIEW_CASH,
           Permission.CREATE_CASH,
-          Permission.UPDATE_CASH, // To'lovni tasdiqlash uchun
+          Permission.UPDATE_CASH, // Manager ham tasdiqlashi mumkin
           Permission.VIEW_DASHBOARD,
         ],
       },

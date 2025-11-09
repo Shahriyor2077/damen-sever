@@ -1,3 +1,4 @@
+import logger from "../../utils/logger";
 import BaseError from "../../utils/base.error";
 import Payment, { PaymentStatus } from "../../schemas/payment.schema";
 import paymentService from "./payment.service";
@@ -6,11 +7,11 @@ import IJwtUser from "../../types/user";
 class CashService {
   /**
    * Tasdiqlanmagan to'lovlarni olish
-   * Requirements: 8.1
+   * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 9.1, 9.2
    */
   async getPendingPayments() {
     try {
-      console.log("🔍 === FETCHING PENDING PAYMENTS ===");
+      logger.log("🔍 === FETCHING PAID PAYMENTS FOR CASH ===");
 
       // Debug: Barcha to'lovlarni sanash
       const totalPayments = await Payment.countDocuments();
@@ -20,116 +21,235 @@ class CashService {
       });
       const paidCount = await Payment.countDocuments({ isPaid: true });
 
-      console.log("📊 Payment Statistics:", {
+      logger.log("📊 Payment Statistics:", {
         total: totalPayments,
         pending: pendingCount,
         paid: paidCount,
       });
 
-      const payments = await Payment.find({
-        isPaid: false,
-        status: PaymentStatus.PENDING,
-      })
+      // ✅ Faqat to'langan (PAID) to'lovlarni olish
+      // Kassa sahifasida faqat to'langan to'lovlar ko'rinishi kerak
+      const payments = await Payment.find({ isPaid: true })
         .populate("customerId", "firstName lastName phoneNumber")
         .populate("managerId", "firstName lastName")
         .populate("notes", "text")
-        .sort({ date: -1 });
+        .select(
+          "_id amount date isPaid paymentType notes customerId managerId status remainingAmount excessAmount expectedAmount confirmedAt confirmedBy createdAt updatedAt"
+        )
+        .sort({ date: -1 })
+        .lean();
 
-      console.log("✅ Found pending payments:", payments.length);
+      logger.log("✅ Found paid payments:", payments.length);
 
-      if (payments.length > 0) {
-        console.log("📋 Sample payment:", {
-          id: payments[0]._id,
-          customer: payments[0].customerId,
-          manager: payments[0].managerId,
-          amount: payments[0].amount,
-          status: payments[0].status,
+      // ✅ Har bir payment uchun contractId ni topish
+      const Contract = (await import("../../schemas/contract.schema")).default;
+      const paymentsWithContract = await Promise.all(
+        payments.map(async (payment: any) => {
+          try {
+            // Payment ID orqali contract topish
+            const contract = await Contract.findOne({
+              payments: payment._id,
+            })
+              .select("_id productName customer")
+              .populate("customer", "firstName lastName")
+              .lean();
+
+            // if (contract) {
+            //   logger.log(
+            //     `✅ Payment ${payment._id} -> Contract ${contract._id} (${contract.productName})`
+            //   );
+            // } else {
+            //   logger.warn(`⚠️ Payment ${payment._id} -> Contract NOT FOUND`);
+            // }
+
+            return {
+              ...payment,
+              contractId: contract?._id?.toString() || null,
+            };
+          } catch (error) {
+            logger.error(
+              `❌ Error finding contract for payment ${payment._id}:`,
+              error
+            );
+            return {
+              ...payment,
+              contractId: null,
+            };
+          }
+        })
+      );
+
+      if (paymentsWithContract.length > 0) {
+        logger.log("📋 Sample payment:", {
+          id: paymentsWithContract[0]._id,
+          customer: paymentsWithContract[0].customerId,
+          manager: paymentsWithContract[0].managerId,
+          amount: paymentsWithContract[0].amount,
+          status: paymentsWithContract[0].status,
+          contractId: paymentsWithContract[0].contractId,
+          date: paymentsWithContract[0].date,
         });
       }
 
-      return payments;
+      if (!paymentsWithContract || paymentsWithContract.length === 0) {
+        logger.log("⚠️ No paid payments found");
+        return [];
+      }
+
+      return paymentsWithContract;
     } catch (error) {
-      console.error("❌ Error fetching pending payments:", error);
-      throw BaseError.InternalServerError(String(error));
+      logger.error("❌ Error fetching payments:", error);
+      logger.error("❌ Error details:", {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      });
+      throw BaseError.InternalServerError(
+        "To'lovlarni olishda xatolik yuz berdi"
+      );
     }
   }
 
   /**
    * To'lovlarni tasdiqlash
-   * Requirements: 8.2, 8.3, 8.4
+   * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 4.1, 4.2, 4.3, 4.4, 4.5, 9.3, 9.4
    */
   async confirmPayments(paymentIds: string[], user: IJwtUser) {
     try {
-      console.log("✅ === CONFIRMING PAYMENTS (CASH) ===");
-      console.log("Payment IDs:", paymentIds);
+      logger.log("✅ === CONFIRMING PAYMENTS (CASH) ===");
+      logger.log("📋 Payment IDs to confirm:", paymentIds);
+      logger.log("👤 User:", {
+        id: user.sub,
+        name: user.name,
+        role: user.role,
+      });
+
+      if (!paymentIds || paymentIds.length === 0) {
+        logger.warn("⚠️ No payment IDs provided");
+        throw BaseError.BadRequest("To'lov ID lari kiritilmagan");
+      }
 
       const results = [];
+      let successCount = 0;
+      let errorCount = 0;
 
+      // Har bir payment uchun alohida try-catch qo'shish
       for (const paymentId of paymentIds) {
         try {
+          logger.log(`🔄 Processing payment: ${paymentId}`);
           const result = await paymentService.confirmPayment(paymentId, user);
-          results.push(result);
+
+          // Success natijani qaytarish
+          results.push({
+            paymentId,
+            status: "success",
+            message: "To'lov muvaffaqiyatli tasdiqlandi",
+            data: result,
+          });
+
+          successCount++;
+          logger.log(`✅ Payment ${paymentId} confirmed successfully`);
         } catch (error) {
-          console.error(`❌ Error confirming payment ${paymentId}:`, error);
+          // Error natijani qaytarish
+          logger.error(`❌ Error confirming payment ${paymentId}:`, error);
+          logger.error(`❌ Error details:`, {
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+          });
+
           results.push({
             paymentId,
             status: "error",
-            message: (error as Error).message,
+            message:
+              (error as Error).message || "To'lovni tasdiqlashda xatolik",
+            error: {
+              name: (error as Error).name,
+              message: (error as Error).message,
+            },
           });
+
+          errorCount++;
         }
       }
 
-      console.log("🎉 === PAYMENTS CONFIRMATION COMPLETED ===");
+      logger.log("🎉 === PAYMENTS CONFIRMATION COMPLETED ===");
+      logger.log("📊 Results:", {
+        total: paymentIds.length,
+        success: successCount,
+        errors: errorCount,
+      });
 
       return {
-        success: true,
-        message: "To'lovlar tasdiqlandi",
+        success: errorCount === 0,
+        message:
+          errorCount === 0
+            ? "Barcha to'lovlar muvaffaqiyatli tasdiqlandi"
+            : `${successCount} ta to'lov tasdiqlandi, ${errorCount} ta xatolik`,
         results,
+        summary: {
+          total: paymentIds.length,
+          success: successCount,
+          errors: errorCount,
+        },
       };
     } catch (error) {
-      console.error("❌ Error confirming payments:", error);
+      logger.error("❌ Error confirming payments:", error);
+      logger.error("❌ Error details:", {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      });
       throw error;
     }
   }
 
   /**
    * To'lovni rad etish
-   * Requirements: 8.5
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 9.5
    */
   async rejectPayment(paymentId: string, reason: string, user: IJwtUser) {
     try {
-      return await paymentService.rejectPayment(paymentId, reason, user);
+      logger.log("❌ === REJECTING PAYMENT (CASH) ===");
+      logger.log("📋 Payment ID:", paymentId);
+      logger.log("📝 Reason:", reason);
+      logger.log("👤 User:", {
+        id: user.sub,
+        name: user.name,
+        role: user.role,
+      });
+
+      // Validation
+      if (!paymentId) {
+        logger.warn("⚠️ Payment ID not provided");
+        throw BaseError.BadRequest("To'lov ID si kiritilmagan");
+      }
+
+      if (!reason || reason.trim().length === 0) {
+        logger.warn("⚠️ Rejection reason not provided");
+        throw BaseError.BadRequest("Rad etish sababi kiritilmagan");
+      }
+
+      // To'lovni rad etish
+      const result = await paymentService.rejectPayment(
+        paymentId,
+        reason,
+        user
+      );
+
+      logger.log("✅ Payment rejected successfully");
+      logger.log("📊 Result:", {
+        paymentId,
+        status: result.status,
+        message: result.message,
+      });
+
+      return result;
     } catch (error) {
-      console.error("❌ Error rejecting payment:", error);
+      logger.error("❌ Error rejecting payment:", error);
+      logger.error("❌ Error details:", {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+      });
       throw error;
     }
-  }
-
-  /**
-   * DEPRECATED: Eski getAll() metodi
-   * Yangi getPendingPayments() metodidan foydalaning
-   */
-  async getAll() {
-    console.warn(
-      "⚠️ DEPRECATED: getAll() is deprecated. Use getPendingPayments() instead."
-    );
-    return await this.getPendingPayments();
-  }
-
-  /**
-   * DEPRECATED: Eski confirmations() metodi
-   * Yangi confirmPayments() metodidan foydalaning
-   */
-  async confirmations(cashIds: string[], user?: IJwtUser) {
-    console.warn(
-      "⚠️ DEPRECATED: confirmations() is deprecated. Use confirmPayments() instead."
-    );
-
-    if (!user) {
-      throw BaseError.BadRequest("User is required");
-    }
-
-    return await this.confirmPayments(cashIds, user);
   }
 }
 

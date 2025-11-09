@@ -46,10 +46,6 @@ class PaymentSrvice {
     if (!manager) {
       throw BaseError.NotFoundError("Manager topilmadi yoki o'chirilgan");
     }
-    await this.updateBalance(manager, {
-      dollar: payData.currencyDetails?.dollar || 0,
-      sum: payData.currencyDetails?.sum || 0,
-    });
 
     const notes = new Notes({
       text: payData.notes,
@@ -58,8 +54,7 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    // ❌ ESKI LOGIKA - Debtor'da embedded payment saqlanmaydi
-    // Yangi logika: Payment collection'ga to'g'ridan-to'g'ri yozish
+    // ✅ YANGI LOGIKA - To'lovlar PAID status bilan yaratiladi (avtomatik tasdiqlangan)
     const Payment = (await import("../../schemas/payment.schema")).default;
     const { PaymentType, PaymentStatus } = await import(
       "../../schemas/payment.schema"
@@ -68,15 +63,17 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: true,
+      isPaid: true, // ✅ Avtomatik tasdiqlangan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PAID,
+      status: PaymentStatus.PAID, // ✅ PAID status
       confirmedAt: new Date(),
       confirmedBy: manager._id,
     });
+
+    console.log("✅ Payment created (PAID):", paymentDoc._id);
 
     // Contract.payments ga qo'shish
     const Contract = (await import("../../schemas/contract.schema")).default;
@@ -90,11 +87,13 @@ class PaymentSrvice {
       sum: payData.currencyDetails?.sum || 0,
     });
 
-    // Debtor'ni o'chirish
+    // Debtor o'chirish
     await existingDebtor.deleteOne();
+
     return {
       status: "success",
-      message: "To'lov amalga oshirildi",
+      message: "To'lov muvaffaqiyatli amalga oshirildi",
+      paymentId: paymentDoc._id,
     };
   }
 
@@ -110,10 +109,6 @@ class PaymentSrvice {
     if (!manager) {
       throw BaseError.NotFoundError("Menejer topilmadi yoki o'chirilgan");
     }
-    await this.updateBalance(manager, {
-      dollar: payData.currencyDetails?.dollar || 0,
-      sum: payData.currencyDetails?.sum || 0,
-    });
 
     const notes = new Notes({
       text: payData.notes,
@@ -122,7 +117,7 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    // ❌ ESKI LOGIKA - Debtor yaratilmaydi, to'g'ridan-to'g'ri Payment yaratiladi
+    // ✅ YANGI LOGIKA - To'lovlar PAID status bilan yaratiladi (avtomatik tasdiqlangan)
     const Payment = (await import("../../schemas/payment.schema")).default;
     const { PaymentType, PaymentStatus } = await import(
       "../../schemas/payment.schema"
@@ -131,15 +126,17 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: true,
+      isPaid: true, // ✅ Avtomatik tasdiqlangan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PAID,
+      status: PaymentStatus.PAID, // ✅ PAID status
       confirmedAt: new Date(),
       confirmedBy: manager._id,
     });
+
+    console.log("✅ Payment created (PAID):", paymentDoc._id);
 
     // Contract.payments ga qo'shish
     if (!existingContract.payments) {
@@ -147,9 +144,17 @@ class PaymentSrvice {
     }
     (existingContract.payments as string[]).push(paymentDoc._id.toString());
     await existingContract.save();
+
+    // Balance yangilash
+    await this.updateBalance(manager, {
+      dollar: payData.currencyDetails?.dollar || 0,
+      sum: payData.currencyDetails?.sum || 0,
+    });
+
     return {
       status: "success",
-      message: "To'lov amalga oshirildi",
+      message: "To'lov muvaffaqiyatli amalga oshirildi",
+      paymentId: paymentDoc._id,
     };
   }
 }

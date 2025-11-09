@@ -6,8 +6,17 @@ import Payment from "../../schemas/payment.schema";
 
 class DebtorService {
   /**
-   * Qarzdorlarni ko'rish
+   * Qarzdorlarni ko'rish (Mijozlar bo'yicha guruhlangan)
    * Requirements: 7.2
+   *
+   * LOGIKA:
+   * - Barcha faol shartnomalarni mijozlar bo'yicha guruhlaydi
+   * - Har bir mijoz uchun:
+   *   - Faol shartnomalar soni
+   *   - Umumiy narx (barcha shartnomalar)
+   *   - To'langan summa (barcha shartnomalar)
+   *   - Qoldiq summa (barcha shartnomalar)
+   *   - Keyingi to'lov sanasi (eng yaqin)
    */
   async getDebtors() {
     try {
@@ -122,22 +131,36 @@ class DebtorService {
   }
 
   /**
-   * Muddati o'tgan shartnomalarni olish
+   * Muddati o'tgan shartnomalarni olish (Qarzdorliklar)
    * Requirements: 3.1
+   *
+   * LOGIKA:
+   * - Faqat muddati o'tgan shartnomalarni ko'rsatadi (nextPaymentDate < bugun)
+   * - Agar sana oralig'i berilsa, o'sha oralig'dagi muddati o'tgan shartnomalar
+   * - Agar sana berilmasa, bugungi kungacha muddati o'tgan barcha shartnomalar
    */
   async getContract(startDate: string, endDate: string) {
     try {
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Bugungi kunning boshi
+
       let dateFilter: any = {};
 
       if (startDate && endDate) {
+        // Sana oralig'i berilgan - o'sha oralig'dagi muddati o'tgan shartnomalar
         dateFilter = {
           $gte: new Date(startDate),
           $lte: new Date(endDate),
         };
       } else {
-        dateFilter = { $lte: today };
+        // Sana berilmagan - bugungi kundan oldingi barcha shartnomalar (muddati o'tgan)
+        dateFilter = { $lt: today };
       }
+
+      console.log("📅 Qarzdorliklar filter:", {
+        today: today.toISOString().split("T")[0],
+        dateFilter,
+      });
 
       return await Contract.aggregate([
         {
@@ -206,6 +229,12 @@ class DebtorService {
             },
           },
         },
+        // MUHIM: Faqat qarzdori bor shartnomalarni filtrlash
+        {
+          $match: {
+            remainingDebt: { $gt: 0 },
+          },
+        },
         {
           $addFields: {
             delayDays: {
@@ -225,7 +254,9 @@ class DebtorService {
         },
         {
           $project: {
-            _id: "$customer._id",
+            _id: 1, // Shartnoma ID'sini saqlab qolish
+            contractId: "$_id", // Shartnoma ID'si
+            customerId: "$customer._id", // Mijoz ID'si
             fullName: {
               $concat: ["$customer.firstName", " ", "$customer.lastName"],
             },
@@ -241,13 +272,13 @@ class DebtorService {
             totalPaid: 1,
             remainingDebt: 1,
             nextPaymentDate: 1,
-            productName: "$productName",
+            productName: 1,
             startDate: 1,
             delayDays: 1,
             initialPayment: 1,
           },
         },
-        { $sort: { "dates.nextPaymentDate": 1 } },
+        { $sort: { nextPaymentDate: 1 } }, // To'g'ri field nomi
       ]);
     } catch (error) {
       console.error("Error fetching contracts by payment date:", error);
@@ -347,6 +378,15 @@ class DebtorService {
             (today.getTime() - contract.nextPaymentDate.getTime()) /
               (1000 * 60 * 60 * 24)
           );
+
+          console.log(`📊 Contract ${contract._id}:`);
+          console.log(`   Today: ${today.toISOString().split("T")[0]}`);
+          console.log(
+            `   Next Payment: ${
+              contract.nextPaymentDate.toISOString().split("T")[0]
+            }`
+          );
+          console.log(`   Overdue Days: ${overdueDays}`);
 
           await Debtor.create({
             contractId: contract._id,

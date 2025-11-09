@@ -11,6 +11,15 @@ Adds new fields to Payment and Contract schemas for contract edit functionality:
 - Payment: `linkedPaymentId`, `reason`, `prepaidAmount`, `appliedToPaymentId`
 - Contract: `prepaidBalance`, `editHistory`
 
+### 002-add-payment-indexes.ts
+
+Adds database indexes to Payment schema for performance optimization:
+
+- Compound index on `isPaid` and `status` fields (optimizes pending payments query)
+- Index on `date` field (optimizes date-based sorting and queries)
+
+**Performance Impact:** These indexes significantly improve the performance of the cash system's `getPendingPayments` query, reducing query time from O(n) to O(log n) + O(k) where k is the result set size.
+
 ## Running Migrations
 
 ### Run all migrations

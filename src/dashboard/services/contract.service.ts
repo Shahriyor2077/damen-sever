@@ -32,6 +32,7 @@ class ContractService {
   /**
    * Initial payment yaratish
    * Requirements: 1.2, 4.1, 4.4
+   * ✅ YANGI: Boshlang'ich to'lov tasdiqlangan holda yaratiladi va kassada ko'rinadi (audit uchun)
    */
   private async createInitialPayment(
     contract: any,
@@ -49,16 +50,16 @@ class ContractService {
       });
       await notes.save();
 
-      // 2. Payment yaratish (isPaid: true, paymentType: initial)
+      // 2. Payment yaratish (isPaid: true, status: PAID - avtomatik tasdiqlangan)
       const payment = new Payment({
         amount,
         date: contract.startDate,
-        isPaid: true,
+        isPaid: true, // ✅ Avtomatik tasdiqlangan
         paymentType: PaymentType.INITIAL,
         customerId: contract.customer,
         managerId: user.sub,
         notes: notes._id,
-        status: PaymentStatus.PAID,
+        status: PaymentStatus.PAID, // ✅ PAID status
         confirmedAt: new Date(),
         confirmedBy: user.sub,
       });
@@ -71,7 +72,9 @@ class ContractService {
       contract.payments.push(payment._id);
       await contract.save();
 
-      console.log("✅ Initial payment created:", payment._id);
+      console.log("✅ Initial payment created (PAID):", payment._id);
+      console.log("📊 Payment will be visible in cash page for audit");
+
       return payment;
     } catch (error) {
       console.error("❌ Error creating initial payment:", error);
@@ -1068,6 +1071,11 @@ class ContractService {
 
       // 4. Shartnoma yaratish
       const contractStartDate = startDate ? new Date(startDate) : new Date();
+
+      // Keyingi to'lov sanasi - startDate dan 1 oy keyin
+      const nextPaymentDate = new Date(contractStartDate);
+      nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
+
       const contract = new Contract({
         customer,
         productName,
@@ -1081,7 +1089,7 @@ class ContractService {
         notes: newNotes._id,
         totalPrice,
         startDate: contractStartDate,
-        nextPaymentDate: new Date(initialPaymentDueDate),
+        nextPaymentDate: nextPaymentDate,
         isActive: true,
         createBy: createBy._id,
         info: {

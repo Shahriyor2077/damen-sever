@@ -8,6 +8,7 @@
 
 import mongoose from "mongoose";
 import * as migration001 from "./001-add-payment-contract-fields";
+import * as migration002 from "./002-add-payment-indexes";
 
 interface Migration {
   name: string;
@@ -20,6 +21,11 @@ const migrations: Migration[] = [
     name: "001-add-payment-contract-fields",
     up: migration001.up,
     down: migration001.down,
+  },
+  {
+    name: "002-add-payment-indexes",
+    up: migration002.up,
+    down: migration002.down,
   },
 ];
 

@@ -29,6 +29,10 @@ class BaseError extends Error {
     return new BaseError(409, message);
   }
 
+  static TooManyRequests(message: string) {
+    return new BaseError(429, message);
+  }
+
   static InternalServerError(message: string): Error {
     return new Error(`500 Internal Server Error: ${message}`);
   }

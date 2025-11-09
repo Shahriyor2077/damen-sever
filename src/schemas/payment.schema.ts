@@ -105,6 +105,13 @@ const PaymentSchema = new Schema<IPayment>(
   }
 );
 
+// Indexes for performance optimization
+// Compound index for pending payments query (isPaid: false, status: PENDING)
+PaymentSchema.index({ isPaid: 1, status: 1 }, { name: "idx_isPaid_status" });
+
+// Index for date-based sorting and queries
+PaymentSchema.index({ date: -1 }, { name: "idx_date" });
+
 const Payment = model<IPayment>("Payment", PaymentSchema);
 
 export default Payment;
