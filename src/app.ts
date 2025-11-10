@@ -35,11 +35,11 @@ if (!dashbordHostUrl || !BotHostUrl) {
 const allowedOrigins = [
   dashbordHostUrl,
   BotHostUrl,
-  // "https://www.damen.uz",
-  // "https://damen-web.vercel.app",
+  "https://web-gamma-six-60.vercel.app",
+  "https://nasiya-bot-ten.vercel.app",
+  "https://damen-sever-5.onrender.com",
   "http://localhost:5174",
   "http://localhost:5173"
-
 ];
 
 // Add bot web app URL if exists
@@ -70,6 +70,8 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
+
+
   })
 );
 
