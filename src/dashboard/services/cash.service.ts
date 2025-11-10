@@ -11,25 +11,30 @@ class CashService {
    */
   async getPendingPayments() {
     try {
-      logger.log("🔍 === FETCHING PAID PAYMENTS FOR CASH ===");
+      logger.log("🔍 === FETCHING PENDING PAYMENTS FOR CASH ===");
 
       // Debug: Barcha to'lovlarni sanash
       const totalPayments = await Payment.countDocuments();
       const pendingCount = await Payment.countDocuments({
-        isPaid: false,
         status: PaymentStatus.PENDING,
       });
-      const paidCount = await Payment.countDocuments({ isPaid: true });
+      const paidCount = await Payment.countDocuments({
+        status: PaymentStatus.PAID
+      });
 
       logger.log("📊 Payment Statistics:", {
         total: totalPayments,
-        pending: pendingCount,
-        paid: paidCount,
+        pendingForCash: pendingCount,
+        totalPaid: paidCount,
       });
 
-      // ✅ Faqat to'langan (PAID) to'lovlarni olish
-      // Kassa sahifasida faqat to'langan to'lovlar ko'rinishi kerak
-      const payments = await Payment.find({ isPaid: true })
+      // ✅ Faqat PENDING statusdagi to'lovlarni olish
+      // Kassa sahifasida faqat tasdiqlanmagan to'lovlar ko'rinishi kerak
+      // status: PENDING - kassa tomonidan tasdiqlanmagan
+      // isPaid: false - hali tasdiqlanmagan (dashboard payment service'dan)
+      const payments = await Payment.find({
+        status: PaymentStatus.PENDING,
+      })
         .populate("customerId", "firstName lastName phoneNumber")
         .populate("managerId", "firstName lastName")
         .populate("notes", "text")
@@ -39,7 +44,7 @@ class CashService {
         .sort({ date: -1 })
         .lean();
 
-      logger.log("✅ Found paid payments:", payments.length);
+      logger.log("✅ Found pending payments for cash:", payments.length);
 
       // ✅ Har bir payment uchun contractId ni topish
       const Contract = (await import("../../schemas/contract.schema")).default;
@@ -92,7 +97,7 @@ class CashService {
       }
 
       if (!paymentsWithContract || paymentsWithContract.length === 0) {
-        logger.log("⚠️ No paid payments found");
+        logger.log("⚠️ No pending payments found for cash");
         return [];
       }
 
