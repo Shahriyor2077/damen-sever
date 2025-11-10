@@ -54,7 +54,7 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    // ✅ YANGI LOGIKA - To'lovlar PAID status bilan yaratiladi (avtomatik tasdiqlangan)
+    // ✅ YANGI LOGIKA - To'lovlar PENDING status bilan yaratiladi (kassa tasdiqlashi kerak)
     const Payment = (await import("../../schemas/payment.schema")).default;
     const { PaymentType, PaymentStatus } = await import(
       "../../schemas/payment.schema"
@@ -63,36 +63,24 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: true, // ✅ Avtomatik tasdiqlangan
+      isPaid: false, // ❌ Hali tasdiqlanmagan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PAID, // ✅ PAID status
-      confirmedAt: new Date(),
-      confirmedBy: manager._id,
+      status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
     });
 
-    console.log("✅ Payment created (PAID):", paymentDoc._id);
+    console.log("✅ Payment created (PENDING):", paymentDoc._id);
+    console.log("⏳ Waiting for cash confirmation...");
 
-    // Contract.payments ga qo'shish
-    const Contract = (await import("../../schemas/contract.schema")).default;
-    await Contract.findByIdAndUpdate(existingDebtor.contractId._id, {
-      $push: { payments: paymentDoc._id },
-    });
-
-    // Balance yangilash
-    await this.updateBalance(manager, {
-      dollar: payData.currencyDetails?.dollar || 0,
-      sum: payData.currencyDetails?.sum || 0,
-    });
-
-    // Debtor o'chirish
-    await existingDebtor.deleteOne();
+    // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
+    // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
+    // ❌ Debtor o'chirilmaydi - faqat kassa tasdiqlanganda
 
     return {
       status: "success",
-      message: "To'lov muvaffaqiyatli amalga oshirildi",
+      message: "To'lov qabul qilindi, kassa tasdiqlashi kutilmoqda",
       paymentId: paymentDoc._id,
     };
   }
@@ -117,7 +105,7 @@ class PaymentSrvice {
     });
     await notes.save();
 
-    // ✅ YANGI LOGIKA - To'lovlar PAID status bilan yaratiladi (avtomatik tasdiqlangan)
+    // ✅ YANGI LOGIKA - To'lovlar PENDING status bilan yaratiladi (kassa tasdiqlashi kerak)
     const Payment = (await import("../../schemas/payment.schema")).default;
     const { PaymentType, PaymentStatus } = await import(
       "../../schemas/payment.schema"
@@ -126,34 +114,23 @@ class PaymentSrvice {
     const paymentDoc = await Payment.create({
       amount: payData.amount,
       date: new Date(),
-      isPaid: true, // ✅ Avtomatik tasdiqlangan
+      isPaid: false, // ❌ Hali tasdiqlanmagan
       paymentType: PaymentType.MONTHLY,
       notes: notes._id,
       customerId: customer,
       managerId: manager._id,
-      status: PaymentStatus.PAID, // ✅ PAID status
-      confirmedAt: new Date(),
-      confirmedBy: manager._id,
+      status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
     });
 
-    console.log("✅ Payment created (PAID):", paymentDoc._id);
+    console.log("✅ Payment created (PENDING):", paymentDoc._id);
+    console.log("⏳ Waiting for cash confirmation...");
 
-    // Contract.payments ga qo'shish
-    if (!existingContract.payments) {
-      existingContract.payments = [];
-    }
-    (existingContract.payments as string[]).push(paymentDoc._id.toString());
-    await existingContract.save();
-
-    // Balance yangilash
-    await this.updateBalance(manager, {
-      dollar: payData.currencyDetails?.dollar || 0,
-      sum: payData.currencyDetails?.sum || 0,
-    });
+    // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
+    // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
 
     return {
       status: "success",
-      message: "To'lov muvaffaqiyatli amalga oshirildi",
+      message: "To'lov qabul qilindi, kassa tasdiqlashi kutilmoqda",
       paymentId: paymentDoc._id,
     };
   }

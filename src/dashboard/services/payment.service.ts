@@ -374,7 +374,7 @@ class PaymentService {
   }
 
   /**
-   * Shartnoma bo'yicha to'lov qilish (to'g'ridan-to'g'ri tasdiqlangan)
+   * Shartnoma bo'yicha to'lov qilish (PENDING - kassa tasdiqlashi kerak)
    * Requirements: 8.1, 8.2, 8.3, 8.4
    */
   async payByContract(
@@ -388,7 +388,7 @@ class PaymentService {
     user: IJwtUser
   ) {
     try {
-      console.log("💰 === PAY BY CONTRACT (DIRECT) ===");
+      console.log("💰 === PAY BY CONTRACT (PENDING) ===");
 
       const contract = await Contract.findById(payData.contractId).populate(
         "customer"
@@ -411,56 +411,29 @@ class PaymentService {
         createBy: String(manager._id),
       });
 
-      // 2. Payment yaratish (PAID - avtomatik tasdiqlangan)
+      // 2. Payment yaratish (PENDING - kassa tasdiqlashi kerak)
       const payment = await Payment.create({
         amount: payData.amount,
         date: new Date(),
-        isPaid: true, // ✅ Avtomatik tasdiqlangan
+        isPaid: false, // ❌ Hali tasdiqlanmagan
         paymentType: PaymentType.MONTHLY,
         customerId: contract.customer,
         managerId: String(manager._id),
         notes: notes._id,
-        status: PaymentStatus.PAID, // ✅ PAID status
-        confirmedAt: new Date(),
-        confirmedBy: String(manager._id),
+        status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
         expectedAmount: contract.monthlyPayment,
       });
 
-      console.log("✅ Payment created (PAID):", payment._id);
+      console.log("✅ Payment created (PENDING):", payment._id);
+      console.log("⏳ Waiting for cash confirmation...");
 
-      // 3. Contract.payments ga qo'shish
-      if (!contract.payments) {
-        contract.payments = [];
-      }
-      (contract.payments as string[]).push(payment._id.toString());
-      await contract.save();
-
-      // 4. Balance yangilash
-      await this.updateBalance(manager._id as any, {
-        dollar: payData.amount,
-        sum: 0,
-      });
-
-      // 5. Debtor o'chirish (agar mavjud bo'lsa)
-      const deletedDebtors = await Debtor.deleteMany({
-        contractId: contract._id,
-      });
-      if (deletedDebtors.deletedCount > 0) {
-        console.log("🗑️ Debtor(s) deleted:", deletedDebtors.deletedCount);
-      }
-
-      // 6. Contract status tekshirish
-      await this.checkContractCompletion(String(contract._id));
-
-      console.log("✅ Payment completed:", {
-        contractId: contract._id,
-        paymentId: payment._id,
-        amount: payData.amount,
-      });
+      // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
+      // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
+      // ❌ Debtor o'chirilmaydi - faqat kassa tasdiqlanganda
 
       return {
         status: "success",
-        message: "To'lov muvaffaqiyatli amalga oshirildi",
+        message: "To'lov qabul qilindi, kassa tasdiqlashi kutilmoqda",
         contractId: contract._id,
         paymentId: payment._id,
       };
@@ -471,7 +444,7 @@ class PaymentService {
   }
 
   /**
-   * Debtor bo'yicha to'lov qilish (Dashboard)
+   * Debtor bo'yicha to'lov qilish (Dashboard - PENDING)
    * Requirements: 8.1, 8.2, 8.3, 8.4
    */
   async update(
@@ -485,7 +458,7 @@ class PaymentService {
     user: IJwtUser
   ) {
     try {
-      console.log("💰 === DEBTOR PAYMENT (DASHBOARD) ===");
+      console.log("💰 === DEBTOR PAYMENT (DASHBOARD - PENDING) ===");
 
       const existingDebtor = await Debtor.findById(payData.id).populate(
         "contractId"
@@ -509,52 +482,31 @@ class PaymentService {
         createBy: String(manager._id),
       });
 
-      // 2. Payment yaratish (PAID - avtomatik tasdiqlangan)
+      // 2. Payment yaratish (PENDING - kassa tasdiqlashi kerak)
       const contract = await Contract.findById(existingDebtor.contractId._id);
 
       const paymentDoc = await Payment.create({
         amount: payData.amount,
         date: new Date(),
-        isPaid: true, // ✅ Avtomatik tasdiqlangan
+        isPaid: false, // ❌ Hali tasdiqlanmagan
         paymentType: PaymentType.MONTHLY,
         customerId: customer,
         managerId: String(manager._id),
         notes: notes._id,
-        status: PaymentStatus.PAID, // ✅ PAID status
-        confirmedAt: new Date(),
-        confirmedBy: String(manager._id),
+        status: PaymentStatus.PENDING, // ⏳ PENDING - kassaga tushadi
         expectedAmount: contract?.monthlyPayment,
       });
 
-      console.log("✅ Payment created (PAID):", paymentDoc._id);
+      console.log("✅ Payment created (PENDING):", paymentDoc._id);
+      console.log("⏳ Waiting for cash confirmation...");
 
-      // 3. Contract.payments ga qo'shish
-      if (contract) {
-        if (!contract.payments) {
-          contract.payments = [];
-        }
-        (contract.payments as string[]).push(paymentDoc._id.toString());
-        await contract.save();
-      }
-
-      // 4. Balance yangilash
-      await this.updateBalance(manager._id as any, {
-        dollar: payData.amount,
-        sum: 0,
-      });
-
-      // 5. Debtor o'chirish
-      await existingDebtor.deleteOne();
-      console.log("🗑️ Debtor deleted");
-
-      // 6. Contract status tekshirish
-      if (contract) {
-        await this.checkContractCompletion(String(contract._id));
-      }
+      // ❌ Balance yangilanmaydi - faqat kassa tasdiqlanganda
+      // ❌ Contract.payments ga qo'shilmaydi - faqat kassa tasdiqlanganda
+      // ❌ Debtor o'chirilmaydi - faqat kassa tasdiqlanganda
 
       return {
         status: "success",
-        message: "To'lov muvaffaqiyatli amalga oshirildi",
+        message: "To'lov qabul qilindi, kassa tasdiqlashi kutilmoqda",
         paymentId: paymentDoc._id,
       };
     } catch (error) {
