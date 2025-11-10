@@ -18,8 +18,8 @@ class CashService {
       const pendingCount = await Payment.countDocuments({
         status: PaymentStatus.PENDING,
       });
-      const paidCount = await Payment.countDocuments({
-        status: PaymentStatus.PAID
+      const paidCount = await Payment.countDocuments({ 
+        status: PaymentStatus.PAID 
       });
 
       logger.log("📊 Payment Statistics:", {
