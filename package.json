@@ -45,14 +45,14 @@
     "reflect-metadata": "^0.2.2",
     "telegraf": "^4.16.3",
     "typescript": "^5.8.3",
-    "xlsx": "^0.18.5"
-  },
-  "devDependencies": {
+    "xlsx": "^0.18.5",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/multer": "^1.4.13",
+    "@types/multer": "^1.4.13"
+  },
+  "devDependencies": {
     "ts-node-dev": "^2.0.0"
   },
   "engines": {
